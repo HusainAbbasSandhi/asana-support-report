@@ -15,7 +15,12 @@ The tech leads want two things: a quick numeric picture of support-raised work, 
 - **Product & Tech** means anyone who is **not** on the support team list.
 - A **comment** is an Asana story with `resource_subtype == "comment_added"`. System events such as assignment and field changes are not comments.
 
-## Message 1 — Daily digest, 10:30 IST
+## Changes after first live post (2026-11-04)
+- Table labels: row 1 "Open tickets pending on Prod & Tech", row 4 "First response pending by Prod & Tech (2+ days)"; the list heading matches row 4.
+- **Tasks with a due date** (Asana `due_on` or `due_at`) are left out of row 4, its list, and the stalled report. A due date means Prod & Tech has committed to a timeline. They still count in rows 1–3.
+- Schedule: daily at 10:00 IST (cron 04:27 UTC), stalled at 14:00 IST (cron 08:27 UTC).
+
+## Message 1 — Daily digest, 10:00 IST
 
 ```
 🛠️ Tech Requests — Daily Digest · Thursday, 5 Nov

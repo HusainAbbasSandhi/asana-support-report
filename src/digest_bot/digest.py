@@ -69,8 +69,9 @@ def _cell(text: str) -> dict:
     return {"type": "raw_text", "text": text}
 
 
+NO_REPLY_LABEL = "First response pending by Prod & Tech (2+ days)"
 TABLE_ROWS = [
-    ("Open tickets raised by support", "open"),
+    ("Open tickets pending on Prod & Tech", "open"),
     ("Open for more than 4 days", "over_4d"),
     ("Assigned to a support team member", "assigned_to_support"),
 ]
@@ -80,7 +81,7 @@ def build_daily(report: DailyReport, config: dict, now: datetime, tag: Tag) -> d
     mentions = " ".join(f"<@{u}>" for u in config["slack"]["mention_user_ids"])
     header = f"🛠️ Tech Requests — Daily Digest · {_date(now, config)}"
     rows = [("Metric", "Count")] + [(label, str(getattr(report, attr))) for label, attr in TABLE_ROWS]
-    rows.append(("No Product & Tech reply in 2+ days", str(len(report.no_reply))))
+    rows.append((NO_REPLY_LABEL, str(len(report.no_reply))))
     table = {
         "type": "table",
         "column_settings": [{"is_wrapped": True}, {"align": "right"}],
@@ -94,20 +95,21 @@ def build_daily(report: DailyReport, config: dict, now: datetime, tag: Tag) -> d
     if report.raised_by:
         blocks.append(_section("Raised by: " + " · ".join(f"{escape(n)} {c}" for n, c in report.raised_by)))
     blocks.append({"type": "divider"})
-    blocks.append(_section(f"*⏳ No Product & Tech reply in 2+ days — {len(report.no_reply)}*"))
+    blocks.append(_section(f"*⏳ {escape(NO_REPLY_LABEL)} — {len(report.no_reply)}*\n"
+                           f"_Tickets with a due date are not included_"))
     if report.no_reply:
         blocks += _groups(report.no_reply, lambda t: t, "waiting",
                           lambda t: f"• {_link(t)} — {_days(max(0, (now - t.created_at).days))}", tag)
     else:
-        blocks.append(_section("✅ Every ticket older than 2 days has a Product & Tech reply"))
+        blocks.append(_section("✅ Every ticket older than 2 days has a first response from Prod &amp; Tech"))
     blocks += [{"type": "divider"}, _footer(config)]
     return {"text": f"{header} — cc {mentions}", "blocks": blocks[:50]}
 
 
 def build_stalled(items: list[tuple[Task, Comment]], config: dict, now: datetime, tag: Tag) -> dict:
     header = f"⏰ Stalled conversations · {_date(now, config)}"
-    blocks = [_section(f"*{header}*\n_Open support tickets where Product & Tech replied, "
-                       f"but nobody has commented for 24h+_")]
+    blocks = [_section(f"*{header}*\n_Open support tickets where Prod &amp; Tech replied, "
+                       f"but nobody has commented for 24h+ · tickets with a due date are not included_")]
 
     def bullet(item):
         task, last = item

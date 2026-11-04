@@ -9,12 +9,28 @@ TEAM = {"s1": "Haydar Abbas", "s2": "Ishika Batra", "s3": "Haydar Abbas"}
 _n = 0
 
 
-def task(age_h, creator="s1", assignee=None, email=None, assignee_gid=None):
+def task(age_h, creator="s1", assignee=None, email=None, assignee_gid=None, due_on=None):
     global _n
     _n += 1
     return Task(gid=str(_n), name=f"T{_n}", url=f"https://x/{_n}", created_at=NOW - timedelta(hours=age_h),
                 assignee_name=assignee, section_name=None, priority=None, status=None, requester=None,
-                module=None, created_by_gid=creator, assignee_gid=assignee_gid, assignee_email=email)
+                module=None, created_by_gid=creator, assignee_gid=assignee_gid, assignee_email=email,
+                due_on=due_on)
+
+
+def test_due_date_excludes_from_no_reply_but_still_counted_open():
+    with_due = task(72, due_on="2026-11-20")
+    without = task(72)
+    r = daily_report([with_due, without], {}, TEAM, NOW)
+    assert r.no_reply == [without]
+    assert r.open == 2 and r.over_4d == 0
+
+
+def test_due_date_excludes_from_stalled():
+    with_due = task(100, due_on="2026-11-01")
+    without = task(100)
+    comments = {t.gid: [c(80, "tech1"), c(30, "s1")] for t in (with_due, without)}
+    assert [t for t, _ in stalled_report([with_due, without], comments, TEAM, NOW)] == [without]
 
 
 def c(age_h, author):

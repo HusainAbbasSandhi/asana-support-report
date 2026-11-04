@@ -55,10 +55,10 @@ def test_daily_table_rows_and_values():
     flat = [[cell["text"] for cell in row] for row in rows]
     assert flat == [
         ["Metric", "Count"],
-        ["Open tickets raised by support", "71"],
+        ["Open tickets pending on Prod & Tech", "71"],
         ["Open for more than 4 days", "50"],
         ["Assigned to a support team member", "6"],
-        ["No Product & Tech reply in 2+ days", "30"],
+        ["First response pending by Prod & Tech (2+ days)", "30"],
     ]
     assert all(cell["type"] == "raw_text" for row in rows for cell in row)
 
@@ -73,7 +73,7 @@ def test_no_reply_grouped_with_tags_counts_and_ages():
     j1 = make_task(age_days=2.5, assignee="Joel")
     u1 = make_task(age_days=4, assignee=None, email=None)
     t = texts(build_daily(report(no_reply=[j1, p2, u1, p1]), CFG, NOW, tag))
-    assert "No Product & Tech reply in 2+ days — 4" in t
+    assert "First response pending by Prod &amp; Tech (2+ days) — 4" in t
     assert t.index("<@Priyank> — 2 waiting") < t.index("<@Joel> — 1 waiting") < t.index("*Unassigned* — 1 waiting")
     assert t.index("Old one") < t.index("Newer one")
     assert "• <https://x/" in t and "— 5 days" in t

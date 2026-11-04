@@ -14,7 +14,7 @@ REQUESTER = "1208648898989523"  # enum
 REPORTER = "1216285168420620"  # people
 
 ASANA_OPT_FIELDS = (
-    "name,permalink_url,created_at,created_by.gid,assignee.gid,assignee.name,assignee.email,"
+    "name,permalink_url,created_at,due_on,due_at,created_by.gid,assignee.gid,assignee.name,assignee.email,"
     "memberships.project.gid,"
     "memberships.section.name,custom_fields.gid,custom_fields.enum_value.name,"
     "custom_fields.multi_enum_values.name,custom_fields.people_value.name"
@@ -36,6 +36,7 @@ class Task:
     created_by_gid: str | None = None
     assignee_gid: str | None = None
     assignee_email: str | None = None
+    due_on: str | None = None  # Asana due_on (date) or due_at (datetime); None when no due date
 
 
 @dataclass(frozen=True)
@@ -121,4 +122,5 @@ def from_asana(raw: dict, project_gid: str) -> Task:
         created_by_gid=_clean((raw.get("created_by") or {}).get("gid")),
         assignee_gid=_clean((raw.get("assignee") or {}).get("gid")),
         assignee_email=_clean((raw.get("assignee") or {}).get("email")),
+        due_on=_clean(raw.get("due_on")) or _clean(raw.get("due_at")),
     )

@@ -27,8 +27,10 @@ def _tech_comments(comments: list[Comment], team: dict) -> list[Comment]:
 
 
 def daily_report(tasks: list[Task], comments: dict[str, list[Comment]], team: dict, now: datetime) -> DailyReport:
+    # A due date means Prod & Tech has committed to a timeline, so the task is not chased.
     no_reply = [t for t in tasks
-                if now - t.created_at > NO_REPLY_AFTER and not _tech_comments(comments.get(t.gid, []), team)]
+                if not t.due_on and now - t.created_at > NO_REPLY_AFTER
+                and not _tech_comments(comments.get(t.gid, []), team)]
     counts = Counter(team.get(t.created_by_gid, "Unknown") for t in tasks)
     return DailyReport(
         open=len(tasks),
@@ -45,7 +47,7 @@ def stalled_report(tasks: list[Task], comments: dict[str, list[Comment]], team: 
     out = []
     for t in tasks:
         cs = comments.get(t.gid, [])
-        if not _tech_comments(cs, team):
+        if t.due_on or not _tech_comments(cs, team):
             continue
         last = max(cs, key=lambda c: c.created_at)
         if now - last.created_at > STALLED_AFTER:

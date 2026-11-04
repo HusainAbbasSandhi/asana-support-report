@@ -53,7 +53,7 @@ def test_daily_dry_run_only_support_tasks_no_slack(monkeypatch, capsys, stub_asa
     assert main_mod.run(report="daily", dry_run=True, config_path=CONFIG, now=NOW) == 0
     out = capsys.readouterr().out
     assert "Raised by tech" not in out
-    assert '"Open tickets raised by support"' in out
+    assert '"Open tickets pending on Prod & Tech"' in out
     assert stub_asana == ["111"]  # comments fetched only for in-scope tasks
 
 

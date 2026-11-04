@@ -139,6 +139,17 @@ def test_assignee_gid_and_email(bug_raw, req_raw):
     assert r.assignee_gid is None and r.assignee_email is None
 
 
+def test_due_date_read_from_due_on_or_due_at(bug_raw):
+    assert from_asana(bug_raw, BUG_GID).due_on is None
+    bug_raw["due_on"] = "2026-11-20"
+    assert from_asana(bug_raw, BUG_GID).due_on == "2026-11-20"
+    bug_raw["due_on"] = None
+    bug_raw["due_at"] = "2026-11-20T10:00:00.000Z"
+    assert from_asana(bug_raw, BUG_GID).due_on == "2026-11-20T10:00:00.000Z"
+    from digest_bot.models import ASANA_OPT_FIELDS
+    assert "due_on" in ASANA_OPT_FIELDS and "due_at" in ASANA_OPT_FIELDS
+
+
 def test_opt_fields_request_assignee_email():
     from digest_bot.models import ASANA_OPT_FIELDS
     assert "assignee.email" in ASANA_OPT_FIELDS and "assignee.gid" in ASANA_OPT_FIELDS
