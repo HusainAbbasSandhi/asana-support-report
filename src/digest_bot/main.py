@@ -1,4 +1,4 @@
-"""CLI: fetch open tasks, build the digest, post it (or print it with --dry-run)."""
+"""CLI: fetch support-raised tasks + comments, build a report, post it (or print it with --dry-run)."""
 from __future__ import annotations
 
 import argparse
@@ -7,18 +7,48 @@ import os
 import sys
 from datetime import datetime, timezone
 
-from digest_bot.asana_client import AsanaError, fetch_open_tasks
+from digest_bot.asana_client import AsanaError, fetch_open_tasks, fetch_stories
 from digest_bot.config import load_config
-from digest_bot.digest import build_digest
-from digest_bot.models import from_asana, raised_by
-from digest_bot.slack_client import SlackError, post_message
+from digest_bot.digest import build_daily, build_stalled, monospace_fallback
+from digest_bot.metrics import daily_report, stalled_report
+from digest_bot.models import comments_from_stories, from_asana, raised_by
+from digest_bot.slack_client import SlackError, lookup_user_id, post_message
+
+REPORTS = ("daily", "stalled")
 
 
 def _err(msg: str) -> None:
     print(f"error: {msg}", file=sys.stderr)
 
 
-def run(dry_run: bool, config_path: str = "config.yaml", now: datetime | None = None) -> int:
+def _tagger(slack_token: str | None):
+    """(name, email) -> Slack mention, or bold name when no match / dry run. Cached per run."""
+    cache: dict[str, str | None] = {}
+
+    def tag(name: str | None, email: str | None) -> str:
+        if not name:
+            return "*Unassigned*"
+        if slack_token and email:
+            if email not in cache:
+                cache[email] = lookup_user_id(email, slack_token)
+            if cache[email]:
+                return f"<@{cache[email]}>"
+        return f"*{name}*"
+
+    return tag
+
+
+def _post(channel: str, payload: dict, token: str) -> str:
+    try:
+        return post_message(channel, payload, token)
+    except SlackError as exc:
+        if exc.code != "invalid_blocks":
+            raise
+        return post_message(channel, monospace_fallback(payload), token)
+
+
+def run(report: str = "daily", dry_run: bool = False, config_path: str = "config.yaml",
+        now: datetime | None = None) -> int:
     asana_token = os.environ.get("ASANA_TOKEN")
     slack_token = os.environ.get("SLACK_BOT_TOKEN")
     if not asana_token:
@@ -30,33 +60,38 @@ def run(dry_run: bool, config_path: str = "config.yaml", now: datetime | None = 
 
     config = load_config(config_path)
     now = now or datetime.now(timezone.utc)
-    bug_gid = config["asana"]["bug_tracking"]
-    req_gid = config["asana"]["requests_to_tech"]
+    team = config["asana"].get("support_team") or {}
     try:
-        team = config["asana"].get("support_team")
-        bugs = raised_by([from_asana(r, bug_gid) for r in fetch_open_tasks(bug_gid, asana_token)], team)
-        reqs = raised_by([from_asana(r, req_gid) for r in fetch_open_tasks(req_gid, asana_token)], team)
-        payload = build_digest(bugs, reqs, config, now)
+        tasks = []
+        for gid in (config["asana"]["bug_tracking"], config["asana"]["requests_to_tech"]):
+            tasks += raised_by([from_asana(r, gid) for r in fetch_open_tasks(gid, asana_token)], team)
+        comments = {t.gid: comments_from_stories(fetch_stories(t.gid, asana_token)) for t in tasks}
+        tag = _tagger(None if dry_run else slack_token)
+        if report == "stalled":
+            payload = build_stalled(stalled_report(tasks, comments, team, now), config, now, tag)
+        else:
+            payload = build_daily(daily_report(tasks, comments, team, now), config, now, tag)
         if dry_run:
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 0
-        ts = post_message(config["slack"]["channel"], payload, slack_token)
+        ts = _post(config["slack"]["channel"], payload, slack_token)
     except (AsanaError, SlackError) as exc:
         _err(str(exc))
         return 1
-    print(f"Posted ts={ts}")
+    print(f"Posted {report} ts={ts}")
     return 0
 
 
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8")  # emoji on Windows consoles
-    parser = argparse.ArgumentParser(description="Post the daily Asana tech requests digest to Slack.")
+            stream.reconfigure(encoding="utf-8")
+    parser = argparse.ArgumentParser(description="Post an Asana tech requests report to Slack.")
+    parser.add_argument("--report", choices=REPORTS, default="daily")
     parser.add_argument("--dry-run", action="store_true", help="print the Slack payload instead of posting")
     parser.add_argument("--config", default="config.yaml")
     args = parser.parse_args()
-    sys.exit(run(dry_run=args.dry_run, config_path=args.config))
+    sys.exit(run(report=args.report, dry_run=args.dry_run, config_path=args.config))
 
 
 if __name__ == "__main__":
