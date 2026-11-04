@@ -1,0 +1,41 @@
+name: Stalled conversations report
+
+on:
+  schedule:
+    # 08:27 UTC = 13:57 IST, every day.
+    - cron: "27 8 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the message in the log instead of posting to Slack"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stalled
+  cancel-in-progress: false
+
+jobs:
+  stalled:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build and post stalled report
+        env:
+          PYTHONPATH: src
+          ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: python -m digest_bot.main --report stalled ${{ inputs.dry_run && '--dry-run' || '' }}

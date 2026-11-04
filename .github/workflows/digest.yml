@@ -2,9 +2,9 @@
 
 on:
   schedule:
-    # 04:57 UTC = 10:27 IST, every day. Off the top of the hour, when GitHub's
+    # 04:27 UTC = 09:57 IST, every day. Off the top of the hour, when GitHub's
     # scheduler is busiest and runs are often late or dropped.
-    - cron: "57 4 * * *"
+    - cron: "27 4 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -40,4 +40,4 @@ jobs:
           PYTHONPATH: src
           ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        run: python -m digest_bot.main ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: python -m digest_bot.main --report daily ${{ inputs.dry_run && '--dry-run' || '' }}
