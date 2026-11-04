@@ -12,10 +12,10 @@ import requests
 
 from digest_bot.asana_client import AsanaError, fetch_open_tasks, fetch_stories
 from digest_bot.config import load_config
-from digest_bot.digest import build_daily, build_stalled, monospace_fallback
+from digest_bot.digest import build_daily, build_stalled, escape, monospace_fallback
 from digest_bot.metrics import daily_report, stalled_report
 from digest_bot.models import comments_from_stories, from_asana, raised_by
-from digest_bot.slack_client import SlackError, lookup_user_id, post_message
+from digest_bot.slack_client import SlackError, post_message
 
 REPORTS = ("daily", "stalled")
 STORY_WORKERS = 6  # parallel comment fetches; well under Asana's concurrency limits
@@ -25,21 +25,9 @@ def _err(msg: str) -> None:
     print(f"error: {msg}", file=sys.stderr)
 
 
-def _tagger(slack_token: str | None):
-    """(name, email) -> Slack mention, or bold name when no match / dry run. Cached per run."""
-    cache: dict[str, str | None] = {}
-
-    def tag(name: str | None, email: str | None) -> str:
-        if not name:
-            return "*Unassigned*"
-        if slack_token and email:
-            if email not in cache:
-                cache[email] = lookup_user_id(email, slack_token)
-            if cache[email]:
-                return f"<@{cache[email]}>"
-        return f"*{name}*"
-
-    return tag
+def _label(name: str | None, email: str | None) -> str:
+    """Assignee group heading: a bold name, never an @mention (the leads follow up themselves)."""
+    return f"*{escape(name)}*" if name else "*Unassigned*"
 
 
 def _post(channel: str, payload: dict, token: str) -> str:
@@ -75,9 +63,7 @@ def run(report: str = "daily", dry_run: bool = False, config_path: str = "config
         with ThreadPoolExecutor(max_workers=STORY_WORKERS) as pool:
             stories = pool.map(lambda t: fetch_stories(t.gid, asana_token, session=session), tasks)
             comments = {t.gid: comments_from_stories(s) for t, s in zip(tasks, stories)}
-        # Lookups are read-only, so dry runs do them too when a Slack token is present:
-        # that lets a dry run prove @tags work without posting anything.
-        tag = _tagger(slack_token)
+        tag = _label
         if report == "stalled":
             payload = build_stalled(stalled_report(tasks, comments, team, now), config, now, tag)
         else:

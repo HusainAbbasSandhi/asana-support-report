@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -45,12 +46,10 @@ def no_slack(monkeypatch):
         raise AssertionError("Slack must not be called")
 
     monkeypatch.setattr(main_mod, "post_message", boom)
-    monkeypatch.setattr(main_mod, "lookup_user_id", boom)
 
 
 def test_daily_dry_run_only_support_tasks_no_slack(monkeypatch, capsys, stub_asana, no_slack):
     monkeypatch.setenv("ASANA_TOKEN", "a")
-    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)  # no Slack token → no lookups at all
     assert main_mod.run(report="daily", dry_run=True, config_path=CONFIG, now=NOW) == 0
     out = capsys.readouterr().out
     assert "Raised by tech" not in out
@@ -58,45 +57,21 @@ def test_daily_dry_run_only_support_tasks_no_slack(monkeypatch, capsys, stub_asa
     assert stub_asana == ["111"]  # comments fetched only for in-scope tasks
 
 
-def test_dry_run_with_slack_token_resolves_tags_but_never_posts(monkeypatch, capsys, stub_asana):
-    monkeypatch.setenv("ASANA_TOKEN", "a")
-    monkeypatch.setenv("SLACK_BOT_TOKEN", "x")
-    monkeypatch.setattr(main_mod, "lookup_user_id", lambda email, token: "UJOEL")
-
-    def boom(*a, **k):
-        raise AssertionError("dry run must not post")
-
-    monkeypatch.setattr(main_mod, "post_message", boom)
-    assert main_mod.run(report="daily", dry_run=True, config_path=CONFIG, now=NOW) == 0
-    assert "<@UJOEL>" in capsys.readouterr().out
-
-
-def test_daily_posts_with_email_tag(monkeypatch, capsys, stub_asana):
+def test_assignees_shown_as_bold_names_only_leads_mentioned(monkeypatch, capsys, stub_asana):
     monkeypatch.setenv("ASANA_TOKEN", "a")
     monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-secret")
     posted = []
-    monkeypatch.setattr(main_mod, "lookup_user_id", lambda email, token: "UJOEL" if email == "joel.gnan@reelo.io" else None)
     monkeypatch.setattr(main_mod, "post_message", lambda ch, payload, token: posted.append(payload) or "1.1")
     assert main_mod.run(report="daily", dry_run=False, config_path=CONFIG, now=NOW) == 0
-    blob = json.dumps(posted[0])
-    assert "<@UJOEL> \\u2014 1 waiting" in blob or "<@UJOEL> — 1 waiting" in blob
+    blob = json.dumps(posted[0], ensure_ascii=False)
+    assert "*Joel Gnan* — 1 waiting" in blob
+    assert set(re.findall(r"<@(U\w+)>", blob)) == {"U04H2DR5JJ1", "U01NJ4W5RLL", "U01GGKD7468"}
     assert "xoxb-secret" not in capsys.readouterr().out
-
-
-def test_unmatched_email_shows_bold_name(monkeypatch, stub_asana):
-    monkeypatch.setenv("ASANA_TOKEN", "a")
-    monkeypatch.setenv("SLACK_BOT_TOKEN", "x")
-    posted = []
-    monkeypatch.setattr(main_mod, "lookup_user_id", lambda email, token: None)
-    monkeypatch.setattr(main_mod, "post_message", lambda ch, payload, token: posted.append(payload) or "1.1")
-    assert main_mod.run(report="daily", dry_run=False, config_path=CONFIG, now=NOW) == 0
-    assert "*Joel Gnan* — 1 waiting" in json.dumps(posted[0], ensure_ascii=False)
 
 
 def test_invalid_blocks_falls_back_to_monospace_once(monkeypatch, stub_asana):
     monkeypatch.setenv("ASANA_TOKEN", "a")
     monkeypatch.setenv("SLACK_BOT_TOKEN", "x")
-    monkeypatch.setattr(main_mod, "lookup_user_id", lambda email, token: None)
     posted = []
 
     def fake_post(ch, payload, token):
