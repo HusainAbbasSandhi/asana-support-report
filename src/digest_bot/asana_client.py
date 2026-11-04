@@ -5,7 +5,7 @@ import time
 
 import requests
 
-from digest_bot.models import ASANA_OPT_FIELDS
+from digest_bot.models import ASANA_OPT_FIELDS, STORY_OPT_FIELDS
 
 BASE = "https://app.asana.com/api/1.0"
 MAX_ATTEMPTS = 3
@@ -36,17 +36,26 @@ def _get(session, url, params, headers, sleep) -> dict:
     raise AsanaError("unreachable")
 
 
-def fetch_open_tasks(project_gid: str, token: str, session: requests.Session | None = None,
-                     sleep=time.sleep) -> list[dict]:
+def _paged(url: str, params: dict, token: str, session, sleep) -> list[dict]:
     session = session or requests.Session()
-    url = f"{BASE}/projects/{project_gid}/tasks"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-    params = {"completed_since": "now", "opt_fields": ASANA_OPT_FIELDS, "limit": 100}
-    tasks: list[dict] = []
+    items: list[dict] = []
     while True:
         body = _get(session, url, params, headers, sleep)
-        tasks.extend(body.get("data") or [])
+        items.extend(body.get("data") or [])
         offset = (body.get("next_page") or {}).get("offset")
         if not offset:
-            return tasks
+            return items
         params = {**params, "offset": offset}
+
+
+def fetch_open_tasks(project_gid: str, token: str, session: requests.Session | None = None,
+                     sleep=time.sleep) -> list[dict]:
+    params = {"completed_since": "now", "opt_fields": ASANA_OPT_FIELDS, "limit": 100}
+    return _paged(f"{BASE}/projects/{project_gid}/tasks", params, token, session, sleep)
+
+
+def fetch_stories(task_gid: str, token: str, session: requests.Session | None = None,
+                  sleep=time.sleep) -> list[dict]:
+    params = {"opt_fields": STORY_OPT_FIELDS, "limit": 100}
+    return _paged(f"{BASE}/tasks/{task_gid}/stories", params, token, session, sleep)

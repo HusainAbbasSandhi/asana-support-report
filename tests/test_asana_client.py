@@ -36,6 +36,19 @@ def test_follows_pagination():
     assert s.calls[0]["url"] == "https://app.asana.com/api/1.0/projects/P1/tasks"
 
 
+def test_fetch_stories_paginates_task_stories():
+    from digest_bot.asana_client import fetch_stories
+    s = FakeSession([
+        FakeResp(200, {"data": [{"gid": "s1"}], "next_page": {"offset": "o2"}}),
+        FakeResp(200, {"data": [{"gid": "s2"}], "next_page": None}),
+    ])
+    out = fetch_stories("T9", "t", session=s, sleep=lambda _: None)
+    assert [x["gid"] for x in out] == ["s1", "s2"]
+    assert s.calls[0]["url"] == "https://app.asana.com/api/1.0/tasks/T9/stories"
+    assert "resource_subtype" in s.calls[0]["params"]["opt_fields"]
+    assert s.calls[1]["params"]["offset"] == "o2"
+
+
 def test_sends_auth_and_params():
     s = FakeSession([FakeResp(200, {"data": [], "next_page": None})])
     fetch_open_tasks("P1", "t", session=s, sleep=lambda _: None)

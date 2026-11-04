@@ -130,6 +130,36 @@ def test_raised_by_accepts_mapping(bug_raw):
     assert raised_by([bug], {"1213456649719771": "Haydar Abbas"}) == [bug]
 
 
+def test_assignee_gid_and_email(bug_raw, req_raw):
+    bug_raw["assignee"]["email"] = "joel.gnan@reelo.io"
+    t = from_asana(bug_raw, BUG_GID)
+    assert t.assignee_gid == "1202713496056982"
+    assert t.assignee_email == "joel.gnan@reelo.io"
+    r = from_asana(req_raw, REQ_GID)
+    assert r.assignee_gid is None and r.assignee_email is None
+
+
+def test_opt_fields_request_assignee_email():
+    from digest_bot.models import ASANA_OPT_FIELDS
+    assert "assignee.email" in ASANA_OPT_FIELDS and "assignee.gid" in ASANA_OPT_FIELDS
+
+
+def test_comments_from_stories_keeps_only_comments_sorted():
+    from digest_bot.models import comments_from_stories
+    stories = [
+        {"resource_subtype": "comment_added", "created_at": "2026-11-03T10:00:00.000Z",
+         "created_by": {"gid": "u2", "name": "Joel"}},
+        {"resource_subtype": "assigned", "created_at": "2026-11-01T10:00:00.000Z",
+         "created_by": {"gid": "u9", "name": "Bot"}},
+        {"resource_subtype": "comment_added", "created_at": "2026-11-02T10:00:00.000Z",
+         "created_by": None},
+    ]
+    cs = comments_from_stories(stories)
+    assert [c.author_name for c in cs] == [None, "Joel"]
+    assert cs[1].author_gid == "u2"
+    assert cs[0].created_at.day == 2
+
+
 def test_load_config_reads_ids():
     cfg = load_config(str(Path(__file__).parent.parent / "config.yaml"))
     assert cfg["slack"]["channel"] == "C075PCA1NF7"

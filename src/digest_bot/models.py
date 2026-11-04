@@ -14,7 +14,8 @@ REQUESTER = "1208648898989523"  # enum
 REPORTER = "1216285168420620"  # people
 
 ASANA_OPT_FIELDS = (
-    "name,permalink_url,created_at,created_by.gid,assignee.name,memberships.project.gid,"
+    "name,permalink_url,created_at,created_by.gid,assignee.gid,assignee.name,assignee.email,"
+    "memberships.project.gid,"
     "memberships.section.name,custom_fields.gid,custom_fields.enum_value.name,"
     "custom_fields.multi_enum_values.name,custom_fields.people_value.name"
 )
@@ -33,6 +34,29 @@ class Task:
     requester: str | None
     module: str | None
     created_by_gid: str | None = None
+    assignee_gid: str | None = None
+    assignee_email: str | None = None
+
+
+@dataclass(frozen=True)
+class Comment:
+    created_at: datetime
+    author_gid: str | None
+    author_name: str | None
+
+
+STORY_OPT_FIELDS = "resource_subtype,created_at,created_by.gid,created_by.name"
+
+
+def comments_from_stories(stories: list[dict]) -> list[Comment]:
+    """Keep only real comments (not system events), oldest first."""
+    out = []
+    for s in stories or []:
+        if s.get("resource_subtype") != "comment_added" or not s.get("created_at"):
+            continue
+        author = s.get("created_by") or {}
+        out.append(Comment(_parse_ts(s["created_at"]), _clean(author.get("gid")), _clean(author.get("name"))))
+    return sorted(out, key=lambda c: c.created_at)
 
 
 def raised_by(tasks: list[Task], creator_gids) -> list[Task]:
@@ -95,4 +119,6 @@ def from_asana(raw: dict, project_gid: str) -> Task:
         requester=_enum(fields, REQUESTER) or _people(fields, REPORTER),
         module=_multi(fields, MODULE) or _multi(fields, FEATURE),
         created_by_gid=_clean((raw.get("created_by") or {}).get("gid")),
+        assignee_gid=_clean((raw.get("assignee") or {}).get("gid")),
+        assignee_email=_clean((raw.get("assignee") or {}).get("email")),
     )
