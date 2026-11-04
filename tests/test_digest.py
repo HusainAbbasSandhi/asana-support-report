@@ -158,6 +158,16 @@ def test_blocks_within_slack_limits():
             assert len(b["text"]["text"]) <= 3000
 
 
+def test_header_says_support_raised_when_filtered():
+    cfg = {**CFG, "asana": {**CFG["asana"], "support_team": ["1"]}}
+    assert "raised by the support team" in text_of(build_digest([], [], cfg, NOW))
+
+
+def test_header_has_no_support_note_when_unfiltered():
+    cfg = {**CFG, "asana": {**CFG["asana"], "support_team": []}}
+    assert "raised by the support team" not in text_of(build_digest([], [], cfg, NOW))
+
+
 def test_footer_links_both_projects():
     t = text_of(build_digest([], [], CFG, NOW))
     assert "https://app.asana.com/1/463982800396267/project/1202029361021711" in t

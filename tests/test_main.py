@@ -45,6 +45,18 @@ def test_run_dry_run_prints_and_does_not_post(monkeypatch, capsys, stub_fetch, n
     assert len(stub_fetch) == 2
 
 
+def test_run_only_includes_support_raised(monkeypatch, capsys, no_post):
+    bug = json.loads((FIX / "bug_task.json").read_text(encoding="utf-8"))  # created by Haydar (support)
+    outsider = {**bug, "gid": "333", "name": "Raised by tech", "created_by": {"gid": "999", "name": "X"}}
+    monkeypatch.setattr(main_mod, "fetch_open_tasks",
+                        lambda gid, token: [bug, outsider] if gid == BUG_GID else [])
+    monkeypatch.setenv("ASANA_TOKEN", "a")
+    assert main_mod.run(dry_run=True, config_path=CONFIG, now=NOW) == 0
+    out = capsys.readouterr().out
+    assert "BUG TRACKING — 1 open" in out
+    assert "Raised by tech" not in out
+
+
 def test_run_posts_to_configured_channel(monkeypatch, capsys, stub_fetch):
     monkeypatch.setenv("ASANA_TOKEN", "a")
     monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-secret")

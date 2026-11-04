@@ -135,8 +135,9 @@ def build_digest(bug_tasks: list[Task], request_tasks: list[Task], config: dict,
     bug_url = PROJECT_URL.format(workspace=ws, gid=config["asana"]["bug_tracking"])
     req_url = PROJECT_URL.format(workspace=ws, gid=config["asana"]["requests_to_tech"])
 
+    scope = "\n_Open tasks raised by the support team_" if config["asana"].get("support_team") else ""
     blocks = [
-        _section(f"*{header}*\ncc {mentions}"),
+        _section(f"*{header}*\ncc {mentions}{scope}"),
         {"type": "divider"},
         *_bug_blocks(bug_tasks, now, cutoff, limits),
         {"type": "divider"},

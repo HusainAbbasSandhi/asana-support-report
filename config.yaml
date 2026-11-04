@@ -3,6 +3,17 @@ asana:
   workspace: "463982800396267"
   bug_tracking: "1202029361021711"
   requests_to_tech: "1208716124012867"
+  # Only tasks CREATED by these Asana users are included. Remove all entries to include everyone.
+  # Find a user's ID: open any task they created in Asana → the creator's profile URL contains it.
+  support_team:
+    - "1213708140273045"   # Husain Abbas
+    - "1213456649719771"   # Haydar Abbas
+    - "1209630028448041"   # Vishal Naidu
+    - "1209520614296294"   # vishal@reelo.in
+    - "1209566934451998"   # vishal.naidu@reelo.in
+    - "1212000756732376"   # Ishika Batra
+    - "1212745386205914"   # udit.charan@reelo.io
+    - "1211520249551622"   # Adithya Kaushik
 slack:
   channel: "C075PCA1NF7"
   mention_user_ids: ["U04H2DR5JJ1", "U01NJ4W5RLL", "U01GGKD7468"]

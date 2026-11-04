@@ -86,6 +86,41 @@ def test_basic_fields(bug_raw):
     assert t.assignee_name == "Joel Gnan"
 
 
+def test_created_by_gid_read(bug_raw, req_raw):
+    assert from_asana(bug_raw, BUG_GID).created_by_gid == "1213456649719771"
+    req_raw["created_by"] = None  # Asana returns null for some very old tasks
+    assert from_asana(req_raw, REQ_GID).created_by_gid is None
+
+
+def test_opt_fields_request_creator():
+    from digest_bot.models import ASANA_OPT_FIELDS
+    assert "created_by.gid" in ASANA_OPT_FIELDS
+
+
+def test_raised_by_filters_on_creator(bug_raw, req_raw):
+    from digest_bot.models import raised_by
+    bug, req = from_asana(bug_raw, BUG_GID), from_asana(req_raw, REQ_GID)
+    assert raised_by([bug, req], ["1213456649719771"]) == [bug]
+    assert raised_by([bug, req], ["1213456649719771", "1211520249551622"]) == [bug, req]
+    assert raised_by([bug, req], ["someone-else"]) == []
+
+
+def test_raised_by_empty_list_means_no_filter(bug_raw, req_raw):
+    from digest_bot.models import raised_by
+    tasks = [from_asana(bug_raw, BUG_GID), from_asana(req_raw, REQ_GID)]
+    assert raised_by(tasks, []) == tasks
+    assert raised_by(tasks, None) == tasks
+
+
+def test_config_support_team_ids():
+    cfg = load_config(str(Path(__file__).parent.parent / "config.yaml"))
+    team = cfg["asana"]["support_team"]
+    for gid in ["1213708140273045", "1213456649719771", "1209630028448041", "1212000756732376",
+                "1212745386205914", "1211520249551622"]:
+        assert gid in team
+    assert all(isinstance(g, str) for g in team)
+
+
 def test_load_config_reads_ids():
     cfg = load_config(str(Path(__file__).parent.parent / "config.yaml"))
     assert cfg["slack"]["channel"] == "C075PCA1NF7"

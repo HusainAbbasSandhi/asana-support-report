@@ -4,6 +4,7 @@
   "permalink_url": "https://app.asana.com/1/463982800396267/project/1208716124012867/task/222",
   "created_at": "2026-10-20T06:30:00.000Z",
   "assignee": null,
+  "created_by": {"gid": "1211520249551622", "name": "Adithya Kaushik"},
   "memberships": [
     {"project": {"gid": "1208716124012867"}, "section": {"name": "Other requests"}}
   ],

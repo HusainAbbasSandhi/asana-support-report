@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from digest_bot.asana_client import AsanaError, fetch_open_tasks
 from digest_bot.config import load_config
 from digest_bot.digest import build_digest
-from digest_bot.models import from_asana
+from digest_bot.models import from_asana, raised_by
 from digest_bot.slack_client import SlackError, post_message
 
 
@@ -33,8 +33,9 @@ def run(dry_run: bool, config_path: str = "config.yaml", now: datetime | None = 
     bug_gid = config["asana"]["bug_tracking"]
     req_gid = config["asana"]["requests_to_tech"]
     try:
-        bugs = [from_asana(r, bug_gid) for r in fetch_open_tasks(bug_gid, asana_token)]
-        reqs = [from_asana(r, req_gid) for r in fetch_open_tasks(req_gid, asana_token)]
+        team = config["asana"].get("support_team")
+        bugs = raised_by([from_asana(r, bug_gid) for r in fetch_open_tasks(bug_gid, asana_token)], team)
+        reqs = raised_by([from_asana(r, req_gid) for r in fetch_open_tasks(req_gid, asana_token)], team)
         payload = build_digest(bugs, reqs, config, now)
         if dry_run:
             print(json.dumps(payload, ensure_ascii=False, indent=2))

@@ -36,7 +36,9 @@ pytest -q
 
 ## Changing things
 
-Edit [`config.yaml`](config.yaml) to change the channel, the people tagged, the list sizes or the "new" window. Slack user IDs are listed under *Profile → ⋮ → Copy member ID*.
+Edit [`config.yaml`](config.yaml) to change the channel, the people tagged, the list sizes or the "new" window.
+
+**Support team list:** only tasks *created* by the Asana users under `asana.support_team` appear in the digest. To add someone, append their Asana user ID (with a `# name` comment). To find the ID, open their Asana profile; the long number in the URL is the ID. Remove every entry to include all tasks. Slack user IDs are listed under *Profile → ⋮ → Copy member ID*.
 
 ## Troubleshooting
 

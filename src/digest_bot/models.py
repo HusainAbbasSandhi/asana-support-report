@@ -14,7 +14,7 @@ REQUESTER = "1208648898989523"  # enum
 REPORTER = "1216285168420620"  # people
 
 ASANA_OPT_FIELDS = (
-    "name,permalink_url,created_at,assignee.name,memberships.project.gid,"
+    "name,permalink_url,created_at,created_by.gid,assignee.name,memberships.project.gid,"
     "memberships.section.name,custom_fields.gid,custom_fields.enum_value.name,"
     "custom_fields.multi_enum_values.name,custom_fields.people_value.name"
 )
@@ -32,6 +32,15 @@ class Task:
     status: str | None
     requester: str | None
     module: str | None
+    created_by_gid: str | None = None
+
+
+def raised_by(tasks: list[Task], creator_gids) -> list[Task]:
+    """Keep tasks created by one of `creator_gids`. An empty/missing list means no filter."""
+    if not creator_gids:
+        return list(tasks)
+    allowed = {str(g) for g in creator_gids}
+    return [t for t in tasks if t.created_by_gid in allowed]
 
 
 def _clean(value) -> str | None:
@@ -85,4 +94,5 @@ def from_asana(raw: dict, project_gid: str) -> Task:
         status=_enum(fields, STATUS),
         requester=_enum(fields, REQUESTER) or _people(fields, REPORTER),
         module=_multi(fields, MODULE) or _multi(fields, FEATURE),
+        created_by_gid=_clean((raw.get("created_by") or {}).get("gid")),
     )

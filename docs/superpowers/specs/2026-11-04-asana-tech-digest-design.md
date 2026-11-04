@@ -16,7 +16,7 @@ Support agents raise requests for the tech team in Asana. Today there is no sing
 - Asana workspace **Reelo** (`463982800396267`), two projects:
   - **Bug Tracking** — `1202029361021711` (owner Parin Sanghvi; ~173 open)
   - **Requests to Tech Team** — `1208716124012867` (owner Mokshi Sanghvi; ~17 open)
-- **All open (incomplete) tasks** in those projects, regardless of who raised them.
+- **Open (incomplete) tasks raised by the support team.** "Raised by" means the Asana task's `created_by` user is listed in `config.yaml → asana.support_team` (Asana user GIDs). An empty list includes everyone. Changed 2026-11-04 from "all open tasks"; the Requester/Reporter fields were blank on ~95% of tasks, so `created_by` is the only reliable signal. Tasks with no recorded creator are excluded.
 - One Slack message per day to `#tech-cs-issues` (`C075PCA1NF7`, private).
 - Mentions in every message: Priyank Mistry `U04H2DR5JJ1`, Joel Gnan `U01NJ4W5RLL`, Parin Sanghvi `U01GGKD7468`.
 - Schedule: **every day at 10:30 IST** (05:00 UTC), plus manual trigger.
@@ -24,7 +24,7 @@ Support agents raise requests for the tech team in Asana. Today there is no sing
 ### Out of scope
 - Writing anything back to Asana (read-only).
 - Per-ticket real-time alerts, escalation DMs, threads, or weekly reports.
-- Filtering by which support agent raised a task.
+- Per-agent breakdowns of who raised what.
 - Historical trend/metrics storage.
 
 ## Digest format

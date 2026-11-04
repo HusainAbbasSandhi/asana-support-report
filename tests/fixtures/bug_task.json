@@ -4,6 +4,7 @@
   "permalink_url": "https://app.asana.com/1/463982800396267/project/1202029361021711/task/111",
   "created_at": "2026-11-03T20:00:00.000Z",
   "assignee": {"gid": "1202713496056982", "name": "Joel Gnan"},
+  "created_by": {"gid": "1213456649719771", "name": "Haydar Abbas"},
   "memberships": [
     {"project": {"gid": "999"}, "section": {"name": "Some Other Section"}},
     {"project": {"gid": "1202029361021711"}, "section": {"name": "Blocked"}}
