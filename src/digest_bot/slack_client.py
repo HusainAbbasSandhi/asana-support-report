@@ -9,8 +9,27 @@ URL = "https://slack.com/api/chat.postMessage"
 TIMEOUT = 30
 
 
+LOOKUP_URL = "https://slack.com/api/users.lookupByEmail"
+
+
 class SlackError(Exception):
-    pass
+    def __init__(self, message: str, code: str | None = None):
+        super().__init__(message)
+        self.code = code
+
+
+def lookup_user_id(email: str | None, token: str, session=None) -> str | None:
+    """Slack user ID for an email, or None. Never raises: a missing tag must not block a post."""
+    if not email:
+        return None
+    session = session or requests.Session()
+    try:
+        resp = session.get(LOOKUP_URL, params={"email": email},
+                           headers={"Authorization": f"Bearer {token}"}, timeout=TIMEOUT)
+        data = resp.json() if resp.status_code == 200 else {}
+    except (requests.RequestException, ValueError):
+        return None
+    return (data.get("user") or {}).get("id") if data.get("ok") else None
 
 
 def _retry_after(resp) -> float:
@@ -43,5 +62,6 @@ def post_message(channel: str, payload: dict, token: str, session=None, sleep=ti
     except ValueError:
         raise SlackError("Slack returned an invalid response (not JSON)") from None
     if not data.get("ok"):
-        raise SlackError(f"Slack API error: {data.get('error', 'unknown')}")
+        code = data.get("error", "unknown")
+        raise SlackError(f"Slack API error: {code}", code=code)
     return data.get("ts", "")
