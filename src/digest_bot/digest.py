@@ -77,14 +77,14 @@ def _esc(v: str | None) -> str | None:
 
 def _bug_blocks(tasks: list[Task], now: datetime, cutoff: datetime, limits: dict) -> list[dict]:
     new = [t for t in tasks if t.created_at >= cutoff]
-    high = [t for t in tasks if t.priority in HIGH_PRIORITIES]
+    critical = [t for t in tasks if t.priority == "Critical"]
     blocked = [t for t in tasks if _is_blocked(t)]
     unassigned = [t for t in tasks if not t.assignee_name]
 
     summary = f"*🐞 BUG TRACKING — {len(tasks)} open*"
     if not tasks:
         return [_section(summary + "\n✅ Nothing open")]
-    summary += (f"  (🆕 {len(new)} new · 🔴 {len(high)} Critical/High · "
+    summary += (f"  (🆕 {len(new)} new · 🔴 {len(critical)} Critical · "
                 f"🚫 {len(blocked)} Blocked · 👤 {len(unassigned)} unassigned)")
 
     def bug_bullet(t: Task) -> str:
@@ -94,7 +94,9 @@ def _bug_blocks(tasks: list[Task], now: datetime, cutoff: datetime, limits: dict
     blocks = [
         _section(summary),
         _list_block("*🆕 New since yesterday*", [bug_bullet(t) for t in _sort(new)], limits["list_max"]),
-        _list_block("*🔴 Critical / High still open*", [bug_bullet(t) for t in _sort(high)], limits["list_max"]),
+        _list_block("*🔴 Critical still open* (newest first)",
+                    [bug_bullet(t) for t in sorted(critical, key=lambda t: t.created_at, reverse=True)],
+                    limits["list_max"]),
         _list_block("*⏳ Oldest open*", [_bullet(t, [_days(_age_days(t, now))]) for t in oldest], limits["oldest_max"]),
     ]
     return [b for b in blocks if b]

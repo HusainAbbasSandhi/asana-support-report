@@ -58,7 +58,8 @@ def test_bug_summary_counts():
     t = text_of(build_digest(bugs, [], CFG, NOW))
     assert "BUG TRACKING — 5 open" in t
     assert "🆕 2 new" in t
-    assert "🔴 2 Critical/High" in t
+    assert "🔴 1 Critical" in t
+    assert "Critical/High" not in t
     assert "🚫 2 Blocked" in t
     assert "👤 1 unassigned" in t
 
@@ -73,15 +74,26 @@ def test_new_means_created_within_24h():
     assert "Fresh one" in new_block and "Stale one" not in new_block
 
 
-def test_critical_sorted_before_high_then_oldest():
+def test_critical_list_is_critical_only_newest_first():
     bugs = [
-        make_task(name="High new", priority="High", created_at=NOW - timedelta(days=1)),
-        make_task(name="Crit", priority="Critical", created_at=NOW - timedelta(days=1)),
-        make_task(name="High old", priority="High", created_at=NOW - timedelta(days=9)),
+        make_task(name="High one", priority="High", created_at=NOW - timedelta(days=1)),
+        make_task(name="Crit old", priority="Critical", created_at=NOW - timedelta(days=30)),
+        make_task(name="Crit new", priority="Critical", created_at=NOW - timedelta(days=2)),
     ]
     p = build_digest(bugs, [], CFG, NOW)
-    block = next(b["text"]["text"] for b in p["blocks"] if "Critical / High still open" in b.get("text", {}).get("text", ""))
-    assert block.index("Crit") < block.index("High old") < block.index("High new")
+    block = next(b["text"]["text"] for b in p["blocks"] if "Critical still open" in b.get("text", {}).get("text", ""))
+    assert "High one" not in block
+    assert block.index("Crit new") < block.index("Crit old")
+
+
+def test_new_list_still_sorts_critical_first():
+    bugs = [
+        make_task(name="Low fresh", priority="Low", created_at=NOW - timedelta(hours=1)),
+        make_task(name="Crit fresh", priority="Critical", created_at=NOW - timedelta(hours=5)),
+    ]
+    p = build_digest(bugs, [], CFG, NOW)
+    block = next(b["text"]["text"] for b in p["blocks"] if "New since yesterday" in b.get("text", {}).get("text", ""))
+    assert block.index("Crit fresh") < block.index("Low fresh")
 
 
 def test_bullet_format():

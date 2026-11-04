@@ -35,10 +35,10 @@ One Slack message (Slack `mrkdwn`; Block Kit sections if needed to stay within l
 🛠️ Tech Requests — Daily Digest · <Weekday>, <D Mon>
 cc <@U04H2DR5JJ1> <@U01NJ4W5RLL> <@U01GGKD7468>
 
-🐞 BUG TRACKING — <N> open  (🆕 <n> new · 🔴 <n> Critical/High · 🚫 <n> Blocked · 👤 <n> unassigned)
+🐞 BUG TRACKING — <N> open  (🆕 <n> new · 🔴 <n> Critical · 🚫 <n> Blocked · 👤 <n> unassigned)
 🆕 New since yesterday
   • <link|title> — <priority> · <module> · by <requester> · → <assignee>
-🔴 Critical / High still open
+🔴 Critical still open (newest first)
   • …
 ⏳ Oldest open (top 5)
   • <link|title> — <age> days · → <assignee|unassigned>
@@ -56,7 +56,7 @@ cc <@U04H2DR5JJ1> <@U01NJ4W5RLL> <@U01GGKD7468>
 ### Definitions
 - **Open:** `completed = false`.
 - **New:** `created_at` within the 24 hours before the run.
-- **Critical/High:** Priority value is `Critical` or `High` (see Priority rule below).
+- **Critical:** Priority value is `Critical` (see Priority rule below). Changed 2026-11-04 from Critical/High after the live dry run: 112 of 173 open bugs were Critical/High, which made the list mostly noise.
 - **Blocked:** task is in the Bug Tracking section **Blocked**, or its **Status** field is `Blocked`.
 - **Unassigned:** `assignee` is null.
 - **Age:** whole days between `created_at` and run time.
@@ -72,7 +72,7 @@ Use the first field if set, otherwise the second. Values are trimmed (one option
 
 ### Limits
 - Each bulleted list shows at most **10** items (oldest lists: **5**), followed by `+N more` when truncated.
-- Within lists, sort: Critical before High, then oldest first.
+- Sorting: the "New" list puts Critical before High, then oldest first. The "Critical still open" list is newest first. The "Oldest" lists are oldest first.
 - Empty lists are omitted; if a project has zero open tasks, show `✅ Nothing open`.
 - Titles are truncated to ~90 characters and Slack-escaped (`&`, `<`, `>`).
 
