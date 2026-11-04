@@ -116,7 +116,7 @@ def test_config_support_team_ids():
     cfg = load_config(str(Path(__file__).parent.parent / "config.yaml"))
     team = cfg["asana"]["support_team"]
     for gid in ["1213708140273045", "1213456649719771", "1209630028448041", "1212000756732376",
-                "1212745386205914", "1211520249551622"]:
+                "1212745386205914", "1211520249551622", "1211616394608433"]:
         assert gid in team
     assert all(isinstance(g, str) for g in team)
     assert isinstance(team, dict)

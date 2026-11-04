@@ -85,20 +85,49 @@ class GetSession:
         return self.resp
 
 
-def test_lookup_user_id_found():
+class PostSession:
+    def __init__(self, resp=None, exc=None):
+        self.resp, self.exc, self.calls = resp, exc, []
+
+    def post(self, url, data=None, headers=None, timeout=None, json=None):
+        self.calls.append({"url": url, "data": data, "headers": headers})
+        if self.exc:
+            raise self.exc
+        return self.resp
+
+
+def test_lookup_user_id_found_email_in_body_not_url():
     from digest_bot.slack_client import lookup_user_id
-    s = GetSession(FakeResp(200, {"ok": True, "user": {"id": "U123"}}))
+    s = PostSession(FakeResp(200, {"ok": True, "user": {"id": "U123"}}))
     assert lookup_user_id("joel.gnan@reelo.io", "t", session=s) == "U123"
     assert s.calls[0]["url"] == "https://slack.com/api/users.lookupByEmail"
-    assert s.calls[0]["params"] == {"email": "joel.gnan@reelo.io"}
+    assert s.calls[0]["data"] == {"email": "joel.gnan@reelo.io"}
+
+
+def test_lookup_warns_once_on_missing_scope(capsys):
+    from digest_bot import slack_client
+    slack_client._warned.clear()
+    s = PostSession(FakeResp(200, {"ok": False, "error": "missing_scope"}))
+    assert slack_client.lookup_user_id("a@x", "t", session=s) is None
+    assert slack_client.lookup_user_id("b@x", "t", session=s) is None
+    err = capsys.readouterr().err
+    assert err.count("missing_scope") == 1
+
+
+def test_lookup_not_found_is_silent(capsys):
+    from digest_bot import slack_client
+    slack_client._warned.clear()
+    s = PostSession(FakeResp(200, {"ok": False, "error": "users_not_found"}))
+    assert slack_client.lookup_user_id("a@x", "t", session=s) is None
+    assert capsys.readouterr().err == ""
 
 
 def test_lookup_user_id_not_found_or_error_returns_none():
     import requests
     from digest_bot.slack_client import lookup_user_id
-    assert lookup_user_id("x@y", "t", session=GetSession(FakeResp(200, {"ok": False, "error": "users_not_found"}))) is None
-    assert lookup_user_id("x@y", "t", session=GetSession(exc=requests.ConnectionError())) is None
-    assert lookup_user_id(None, "t", session=GetSession(FakeResp(200, {"ok": True}))) is None
+    assert lookup_user_id("x@y", "t", session=PostSession(FakeResp(200, {"ok": False, "error": "users_not_found"}))) is None
+    assert lookup_user_id("x@y", "t", session=PostSession(exc=requests.ConnectionError())) is None
+    assert lookup_user_id(None, "t", session=PostSession(FakeResp(200, {"ok": True}))) is None
 
 
 def test_slack_error_carries_code():

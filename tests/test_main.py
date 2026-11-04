@@ -27,10 +27,10 @@ def stub_asana(monkeypatch):
     outsider = {**bug, "gid": "333", "name": "Raised by tech", "created_by": {"gid": "999"}}
     story_calls = []
 
-    def fake_tasks(gid, token):
+    def fake_tasks(gid, token, **kw):
         return [bug, outsider] if gid == BUG_GID else []
 
-    def fake_stories(task_gid, token):
+    def fake_stories(task_gid, token, **kw):
         story_calls.append(task_gid)
         return []
 
@@ -96,6 +96,19 @@ def test_invalid_blocks_falls_back_to_monospace_once(monkeypatch, stub_asana):
     assert len(posted) == 2 and not any(b["type"] == "table" for b in posted[1]["blocks"])
 
 
+def test_task_in_both_projects_counted_once(monkeypatch, capsys, no_slack):
+    bug = _bug()
+    calls = []
+    monkeypatch.setattr(main_mod, "fetch_open_tasks", lambda gid, token, **kw: [bug])
+    monkeypatch.setattr(main_mod, "fetch_stories", lambda gid, token, **kw: calls.append(gid) or [])
+    monkeypatch.setenv("ASANA_TOKEN", "a")
+    assert main_mod.run(report="daily", dry_run=True, config_path=CONFIG, now=NOW) == 0
+    out = json.loads(capsys.readouterr().out)
+    rows = next(b for b in out["blocks"] if b["type"] == "table")["rows"]
+    assert rows[1][1]["text"] == "1"
+    assert calls == ["111"]
+
+
 def test_stalled_report_dry_run(monkeypatch, capsys, stub_asana, no_slack):
     monkeypatch.setenv("ASANA_TOKEN", "a")
     assert main_mod.run(report="stalled", dry_run=True, config_path=CONFIG, now=NOW) == 0
@@ -114,7 +127,7 @@ def test_asana_error_returns_1_and_posts_nothing(monkeypatch, capsys, no_slack):
     monkeypatch.setenv("ASANA_TOKEN", "a")
     monkeypatch.setenv("SLACK_BOT_TOKEN", "x")
 
-    def fail(gid, token):
+    def fail(gid, token, **kw):
         raise AsanaError("Asana API error 500")
 
     monkeypatch.setattr(main_mod, "fetch_open_tasks", fail)
@@ -126,7 +139,7 @@ def test_stories_error_fails_run(monkeypatch, stub_asana, no_slack):
     monkeypatch.setenv("ASANA_TOKEN", "a")
     monkeypatch.setenv("SLACK_BOT_TOKEN", "x")
 
-    def fail(task_gid, token):
+    def fail(task_gid, token, **kw):
         raise AsanaError("Asana API error 503")
 
     monkeypatch.setattr(main_mod, "fetch_stories", fail)

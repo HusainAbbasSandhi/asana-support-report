@@ -5,7 +5,10 @@ import argparse
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+
+import requests
 
 from digest_bot.asana_client import AsanaError, fetch_open_tasks, fetch_stories
 from digest_bot.config import load_config
@@ -15,6 +18,7 @@ from digest_bot.models import comments_from_stories, from_asana, raised_by
 from digest_bot.slack_client import SlackError, lookup_user_id, post_message
 
 REPORTS = ("daily", "stalled")
+STORY_WORKERS = 6  # parallel comment fetches; well under Asana's concurrency limits
 
 
 def _err(msg: str) -> None:
@@ -61,11 +65,16 @@ def run(report: str = "daily", dry_run: bool = False, config_path: str = "config
     config = load_config(config_path)
     now = now or datetime.now(timezone.utc)
     team = config["asana"].get("support_team") or {}
+    session = requests.Session()  # one connection pool for every Asana call
     try:
-        tasks = []
+        by_gid: dict[str, object] = {}
         for gid in (config["asana"]["bug_tracking"], config["asana"]["requests_to_tech"]):
-            tasks += raised_by([from_asana(r, gid) for r in fetch_open_tasks(gid, asana_token)], team)
-        comments = {t.gid: comments_from_stories(fetch_stories(t.gid, asana_token)) for t in tasks}
+            for t in raised_by([from_asana(r, gid) for r in fetch_open_tasks(gid, asana_token, session=session)], team):
+                by_gid.setdefault(t.gid, t)  # a task in both projects counts once
+        tasks = list(by_gid.values())
+        with ThreadPoolExecutor(max_workers=STORY_WORKERS) as pool:
+            stories = pool.map(lambda t: fetch_stories(t.gid, asana_token, session=session), tasks)
+            comments = {t.gid: comments_from_stories(s) for t, s in zip(tasks, stories)}
         tag = _tagger(None if dry_run else slack_token)
         if report == "stalled":
             payload = build_stalled(stalled_report(tasks, comments, team, now), config, now, tag)

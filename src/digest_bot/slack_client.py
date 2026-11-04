@@ -1,6 +1,7 @@
 """Post a message to Slack via chat.postMessage."""
 from __future__ import annotations
 
+import sys
 import time
 
 import requests
@@ -18,18 +19,34 @@ class SlackError(Exception):
         self.code = code
 
 
+_warned: set[str] = set()
+
+
+def _warn_once(code: str) -> None:
+    if code not in _warned:
+        _warned.add(code)
+        hint = " (add users:read and users:read.email to the Slack app)" if code == "missing_scope" else ""
+        print(f"warning: Slack user lookup failed: {code}{hint}; showing names without @tags", file=sys.stderr)
+
+
 def lookup_user_id(email: str | None, token: str, session=None) -> str | None:
-    """Slack user ID for an email, or None. Never raises: a missing tag must not block a post."""
+    """Slack user ID for an email, or None. Never raises: a missing tag must not block a post.
+    The email goes in the form body, not the URL."""
     if not email:
         return None
     session = session or requests.Session()
     try:
-        resp = session.get(LOOKUP_URL, params={"email": email},
-                           headers={"Authorization": f"Bearer {token}"}, timeout=TIMEOUT)
-        data = resp.json() if resp.status_code == 200 else {}
-    except (requests.RequestException, ValueError):
+        resp = session.post(LOOKUP_URL, data={"email": email},
+                            headers={"Authorization": f"Bearer {token}"}, timeout=TIMEOUT)
+        data = resp.json() if resp.status_code == 200 else {"error": f"http_{resp.status_code}"}
+    except (requests.RequestException, ValueError) as exc:
+        _warn_once(exc.__class__.__name__)
         return None
-    return (data.get("user") or {}).get("id") if data.get("ok") else None
+    if data.get("ok"):
+        return (data.get("user") or {}).get("id")
+    if data.get("error") != "users_not_found":
+        _warn_once(data.get("error", "unknown"))
+    return None
 
 
 def _retry_after(resp) -> float:
