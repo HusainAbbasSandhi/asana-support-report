@@ -1,0 +1,40 @@
+name: Daily tech requests digest
+
+on:
+  schedule:
+    - cron: "0 5 * * *"   # 05:00 UTC = 10:30 IST, every day
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the message in the log instead of posting to Slack"
+        type: boolean
+        default: false
+
+concurrency:
+  group: digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Build and post digest
+        env:
+          PYTHONPATH: src
+          ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: python -m digest_bot.main ${{ inputs.dry_run && '--dry-run' || '' }}
