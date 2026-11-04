@@ -1,0 +1,20 @@
+{
+  "gid": "111",
+  "name": "OTP <fails> & SMS",
+  "permalink_url": "https://app.asana.com/1/463982800396267/project/1202029361021711/task/111",
+  "created_at": "2026-11-03T20:00:00.000Z",
+  "assignee": {"gid": "1202713496056982", "name": "Joel Gnan"},
+  "memberships": [
+    {"project": {"gid": "999"}, "section": {"name": "Some Other Section"}},
+    {"project": {"gid": "1202029361021711"}, "section": {"name": "Blocked"}}
+  ],
+  "custom_fields": [
+    {"gid": "1202861948139129", "enum_value": {"name": " High"}},
+    {"gid": "1200058217049452", "enum_value": {"name": "Low"}},
+    {"gid": "1205244304819066", "enum_value": {"name": "In Progress"}},
+    {"gid": "1215418181758775", "multi_enum_values": [{"name": "Loyalty"}, {"name": "Campaigns"}]},
+    {"gid": "1202853926214497", "multi_enum_values": [{"name": "Feedback "}]},
+    {"gid": "1208648898989523", "enum_value": {"name": "Dimple Manglani"}},
+    {"gid": "1216285168420620", "people_value": [{"name": "Lay Patel"}]}
+  ]
+}

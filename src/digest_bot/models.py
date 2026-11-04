@@ -1,0 +1,88 @@
+"""Normalise raw Asana task JSON into a flat Task record."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+
+# Custom field GIDs (Bug Tracking). Referenced by GID because two fields share the name "Priority".
+PRIORITY_A = "1202861948139129"  # Critical / High / Moderate / Low
+PRIORITY_B = "1200058217049452"  # High / Medium / Low
+STATUS = "1205244304819066"
+MODULE = "1215418181758775"
+FEATURE = "1202853926214497"  # legacy module field
+REQUESTER = "1208648898989523"  # enum
+REPORTER = "1216285168420620"  # people
+
+ASANA_OPT_FIELDS = (
+    "name,permalink_url,created_at,assignee.name,memberships.project.gid,"
+    "memberships.section.name,custom_fields.gid,custom_fields.enum_value.name,"
+    "custom_fields.multi_enum_values.name,custom_fields.people_value.name"
+)
+
+
+@dataclass(frozen=True)
+class Task:
+    gid: str
+    name: str
+    url: str
+    created_at: datetime
+    assignee_name: str | None
+    section_name: str | None
+    priority: str | None
+    status: str | None
+    requester: str | None
+    module: str | None
+
+
+def _clean(value) -> str | None:
+    if value is None:
+        return None
+    value = str(value).strip()
+    return value or None
+
+
+def _enum(fields: dict, gid: str) -> str | None:
+    f = fields.get(gid) or {}
+    return _clean((f.get("enum_value") or {}).get("name"))
+
+
+def _multi(fields: dict, gid: str) -> str | None:
+    f = fields.get(gid) or {}
+    names = [_clean(v.get("name")) for v in (f.get("multi_enum_values") or [])]
+    names = [n for n in names if n]
+    return "/".join(names) or None
+
+
+def _people(fields: dict, gid: str) -> str | None:
+    f = fields.get(gid) or {}
+    names = [_clean(p.get("name")) for p in (f.get("people_value") or [])]
+    names = [n for n in names if n]
+    return ", ".join(names) or None
+
+
+def _section(raw: dict, project_gid: str) -> str | None:
+    for m in raw.get("memberships") or []:
+        if ((m.get("project") or {}).get("gid")) == project_gid:
+            return _clean((m.get("section") or {}).get("name"))
+    return None
+
+
+def _parse_ts(value: str) -> datetime:
+    # Asana returns e.g. "2026-11-03T20:00:00.000Z"
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def from_asana(raw: dict, project_gid: str) -> Task:
+    fields = {f.get("gid"): f for f in (raw.get("custom_fields") or [])}
+    return Task(
+        gid=str(raw.get("gid")),
+        name=_clean(raw.get("name")) or "(untitled)",
+        url=raw.get("permalink_url") or "",
+        created_at=_parse_ts(raw["created_at"]),
+        assignee_name=_clean((raw.get("assignee") or {}).get("name")),
+        section_name=_section(raw, project_gid),
+        priority=_enum(fields, PRIORITY_A) or _enum(fields, PRIORITY_B),
+        status=_enum(fields, STATUS),
+        requester=_enum(fields, REQUESTER) or _people(fields, REPORTER),
+        module=_multi(fields, MODULE) or _multi(fields, FEATURE),
+    )

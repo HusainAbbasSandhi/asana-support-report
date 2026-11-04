@@ -1,0 +1,12 @@
+timezone: Asia/Kolkata
+asana:
+  workspace: "463982800396267"
+  bug_tracking: "1202029361021711"
+  requests_to_tech: "1208716124012867"
+slack:
+  channel: "C075PCA1NF7"
+  mention_user_ids: ["U04H2DR5JJ1", "U01NJ4W5RLL", "U01GGKD7468"]
+limits:
+  list_max: 10
+  oldest_max: 5
+  new_window_hours: 24
