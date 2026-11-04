@@ -20,7 +20,8 @@ The job only reads from Asana. It never changes tasks. Design: [`docs/superpower
 
 ## Running it
 
-- **Automatically:** every day at 05:00 UTC (10:30 IST). GitHub can start scheduled runs a few minutes late.
+- **Automatically:** every day at 04:57 UTC (10:27 IST). It's scheduled a few minutes early and off the top of the hour, because GitHub often starts on-the-hour runs late. Expect the post at around 10:30.
+- **Tests** run in a separate `Tests` workflow on every push, so a failing test never blocks the daily post.
 - **Manually:** *Actions → Daily tech requests digest → Run workflow*. Tick **dry_run** to see the message in the log without posting it.
 
 ### Locally
@@ -46,3 +47,5 @@ Edit [`config.yaml`](config.yaml) to change the channel, the people tagged, the 
 | No post and no failed run | GitHub **disables scheduled workflows after 60 days with no repository activity**. Re-enable it under *Actions → Daily tech requests digest → Enable workflow*, or push any commit. |
 
 When a run fails, GitHub emails the repository owner. A failed run never posts a half-built message.
+
+**Before re-running a failed run, check #tech-cs-issues.** If the failure was a Slack timeout, the message may already have been posted, and re-running would post it twice.

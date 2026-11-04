@@ -2,13 +2,18 @@ name: Daily tech requests digest
 
 on:
   schedule:
-    - cron: "0 5 * * *"   # 05:00 UTC = 10:30 IST, every day
+    # 04:57 UTC = 10:27 IST, every day. Off the top of the hour, when GitHub's
+    # scheduler is busiest and runs are often late or dropped.
+    - cron: "57 4 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
         description: "Print the message in the log instead of posting to Slack"
         type: boolean
         default: false
+
+permissions:
+  contents: read
 
 concurrency:
   group: digest
@@ -29,9 +34,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run tests
-        run: pytest -q
-
+      # Tests run in tests.yml on every push, so a failing test never blocks the daily post.
       - name: Build and post digest
         env:
           PYTHONPATH: src

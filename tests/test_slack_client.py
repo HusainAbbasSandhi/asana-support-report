@@ -41,6 +41,39 @@ def test_post_message_raises_on_ok_false():
         post_message("C1", {"text": "hi", "blocks": []}, "xoxb-t", session=s)
 
 
+class SeqSession:
+    def __init__(self, resps):
+        self.resps = list(resps)
+        self.calls = 0
+
+    def post(self, url, json=None, headers=None, timeout=None):
+        self.calls += 1
+        return self.resps.pop(0)
+
+
+class Resp429(FakeResp):
+    def __init__(self, retry_after):
+        super().__init__(429, {})
+        self.headers = {"Retry-After": retry_after}
+
+
+def test_post_message_retries_once_on_429():
+    slept = []
+    s = SeqSession([Resp429("2"), FakeResp(200, {"ok": True, "ts": "1.2"})])
+    assert post_message("C1", {"text": "hi", "blocks": []}, "t", session=s, sleep=slept.append) == "1.2"
+    assert slept == [2.0] and s.calls == 2
+
+
+def test_post_message_non_json_raises_slack_error():
+    class BadJson(FakeResp):
+        def json(self):
+            raise ValueError("no json")
+
+    s = FakeSession(BadJson(200, None))
+    with pytest.raises(SlackError, match="invalid response"):
+        post_message("C1", {"text": "hi", "blocks": []}, "t", session=s)
+
+
 def test_post_message_raises_on_http_error():
     s = FakeSession(FakeResp(500, {}))
     with pytest.raises(SlackError, match="500"):
