@@ -50,11 +50,25 @@ def no_slack(monkeypatch):
 
 def test_daily_dry_run_only_support_tasks_no_slack(monkeypatch, capsys, stub_asana, no_slack):
     monkeypatch.setenv("ASANA_TOKEN", "a")
+    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)  # no Slack token → no lookups at all
     assert main_mod.run(report="daily", dry_run=True, config_path=CONFIG, now=NOW) == 0
     out = capsys.readouterr().out
     assert "Raised by tech" not in out
     assert '"Open tickets pending on Prod & Tech"' in out
     assert stub_asana == ["111"]  # comments fetched only for in-scope tasks
+
+
+def test_dry_run_with_slack_token_resolves_tags_but_never_posts(monkeypatch, capsys, stub_asana):
+    monkeypatch.setenv("ASANA_TOKEN", "a")
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "x")
+    monkeypatch.setattr(main_mod, "lookup_user_id", lambda email, token: "UJOEL")
+
+    def boom(*a, **k):
+        raise AssertionError("dry run must not post")
+
+    monkeypatch.setattr(main_mod, "post_message", boom)
+    assert main_mod.run(report="daily", dry_run=True, config_path=CONFIG, now=NOW) == 0
+    assert "<@UJOEL>" in capsys.readouterr().out
 
 
 def test_daily_posts_with_email_tag(monkeypatch, capsys, stub_asana):

@@ -75,7 +75,9 @@ def run(report: str = "daily", dry_run: bool = False, config_path: str = "config
         with ThreadPoolExecutor(max_workers=STORY_WORKERS) as pool:
             stories = pool.map(lambda t: fetch_stories(t.gid, asana_token, session=session), tasks)
             comments = {t.gid: comments_from_stories(s) for t, s in zip(tasks, stories)}
-        tag = _tagger(None if dry_run else slack_token)
+        # Lookups are read-only, so dry runs do them too when a Slack token is present:
+        # that lets a dry run prove @tags work without posting anything.
+        tag = _tagger(slack_token)
         if report == "stalled":
             payload = build_stalled(stalled_report(tasks, comments, team, now), config, now, tag)
         else:
