@@ -123,6 +123,16 @@ def _request_blocks(tasks: list[Task], now: datetime, cutoff: datetime, limits: 
     return [b for b in blocks if b]
 
 
+def _support_blocks(tasks: list[Task], team: dict) -> list[dict]:
+    """Open-task count per support agent, both projects combined, highest first."""
+    counts = Counter(team.get(t.created_by_gid, "Unknown") for t in tasks)
+    if not counts:
+        return [_section("*👥 RAISED BY SUPPORT — 0 open*")]
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    line = " · ".join(f"{escape(name)} {n}" for name, n in ranked)
+    return [_section(f"*👥 RAISED BY SUPPORT — {len(tasks)} open*\n{line}")]
+
+
 def build_digest(bug_tasks: list[Task], request_tasks: list[Task], config: dict, now: datetime) -> dict:
     limits = config["limits"]
     cutoff = now - timedelta(hours=limits["new_window_hours"])
@@ -135,10 +145,13 @@ def build_digest(bug_tasks: list[Task], request_tasks: list[Task], config: dict,
     bug_url = PROJECT_URL.format(workspace=ws, gid=config["asana"]["bug_tracking"])
     req_url = PROJECT_URL.format(workspace=ws, gid=config["asana"]["requests_to_tech"])
 
-    scope = "\n_Open tasks raised by the support team_" if config["asana"].get("support_team") else ""
+    team = config["asana"].get("support_team") or {}
+    scope = "\n_Open tasks raised by the support team_" if team else ""
+    support = [*_support_blocks([*bug_tasks, *request_tasks], team), {"type": "divider"}] if team else []
     blocks = [
         _section(f"*{header}*\ncc {mentions}{scope}"),
         {"type": "divider"},
+        *support,
         *_bug_blocks(bug_tasks, now, cutoff, limits),
         {"type": "divider"},
         *_request_blocks(request_tasks, now, cutoff, limits),

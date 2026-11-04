@@ -35,6 +35,9 @@ One Slack message (Slack `mrkdwn`; Block Kit sections if needed to stay within l
 🛠️ Tech Requests — Daily Digest · <Weekday>, <D Mon>
 cc <@U04H2DR5JJ1> <@U01NJ4W5RLL> <@U01GGKD7468>
 
+👥 RAISED BY SUPPORT — <N> open          (both projects combined; only when support_team is set)
+  <agent> <count> · <agent> <count> · …   (highest first; agent names from config, accounts sharing a name are summed)
+
 🐞 BUG TRACKING — <N> open  (🆕 <n> new · 🔴 <n> Critical · 🚫 <n> Blocked · 👤 <n> unassigned)
 🆕 New since yesterday
   • <link|title> — <priority> · <module> · by <requester> · → <assignee>

@@ -158,13 +158,33 @@ def test_blocks_within_slack_limits():
             assert len(b["text"]["text"]) <= 3000
 
 
+def test_support_section_counts_per_agent_across_projects():
+    cfg = {**CFG, "asana": {**CFG["asana"], "support_team": {"a": "Haydar Abbas", "b": "Ishika Batra", "c": "Haydar Abbas"}}}
+    bugs = [make_task(created_by_gid="a"), make_task(created_by_gid="a"), make_task(created_by_gid="b")]
+    reqs = [make_task(created_by_gid="c")]
+    t = text_of(build_digest(bugs, reqs, cfg, NOW))
+    assert "RAISED BY SUPPORT — 4 open" in t
+    assert "Haydar Abbas 3 · Ishika Batra 1" in t
+
+
+def test_support_section_comes_before_bug_tracking():
+    cfg = {**CFG, "asana": {**CFG["asana"], "support_team": {"a": "Haydar Abbas"}}}
+    t = text_of(build_digest([make_task(created_by_gid="a")], [], cfg, NOW))
+    assert t.index("RAISED BY SUPPORT") < t.index("BUG TRACKING")
+
+
+def test_support_section_absent_when_unfiltered():
+    cfg = {**CFG, "asana": {**CFG["asana"], "support_team": {}}}
+    assert "RAISED BY SUPPORT" not in text_of(build_digest([make_task()], [], cfg, NOW))
+
+
 def test_header_says_support_raised_when_filtered():
-    cfg = {**CFG, "asana": {**CFG["asana"], "support_team": ["1"]}}
+    cfg = {**CFG, "asana": {**CFG["asana"], "support_team": {"1": "X"}}}
     assert "raised by the support team" in text_of(build_digest([], [], cfg, NOW))
 
 
 def test_header_has_no_support_note_when_unfiltered():
-    cfg = {**CFG, "asana": {**CFG["asana"], "support_team": []}}
+    cfg = {**CFG, "asana": {**CFG["asana"], "support_team": {}}}
     assert "raised by the support team" not in text_of(build_digest([], [], cfg, NOW))
 
 

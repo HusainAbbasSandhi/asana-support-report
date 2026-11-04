@@ -38,7 +38,7 @@ pytest -q
 
 Edit [`config.yaml`](config.yaml) to change the channel, the people tagged, the list sizes or the "new" window.
 
-**Support team list:** only tasks *created* by the Asana users under `asana.support_team` appear in the digest. To add someone, append their Asana user ID (with a `# name` comment). To find the ID, open their Asana profile; the long number in the URL is the ID. Remove every entry to include all tasks. Slack user IDs are listed under *Profile → ⋮ → Copy member ID*.
+**Support team list:** only tasks *created* by the Asana users under `asana.support_team` appear in the digest, and the "👥 Raised by support" section counts open tasks per person. Each entry is `"<Asana user ID>": "<name>"`. To add someone, add a line. If one person has several accounts, give them all the same name so their counts are summed. To find the ID, open their Asana profile; the long number in the URL is the ID. Remove every entry to include all tasks. Slack user IDs are listed under *Profile → ⋮ → Copy member ID*.
 
 ## Troubleshooting
 

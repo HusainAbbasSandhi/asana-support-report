@@ -119,6 +119,15 @@ def test_config_support_team_ids():
                 "1212745386205914", "1211520249551622"]:
         assert gid in team
     assert all(isinstance(g, str) for g in team)
+    assert isinstance(team, dict)
+    for vishal in ["1209630028448041", "1209520614296294", "1209566934451998"]:
+        assert team[vishal] == "Vishal Naidu"
+
+
+def test_raised_by_accepts_mapping(bug_raw):
+    from digest_bot.models import raised_by
+    bug = from_asana(bug_raw, BUG_GID)
+    assert raised_by([bug], {"1213456649719771": "Haydar Abbas"}) == [bug]
 
 
 def test_load_config_reads_ids():
