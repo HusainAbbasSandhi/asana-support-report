@@ -8,6 +8,9 @@ on:
     # so #tech-cs-issues gets exactly one digest per day. Times avoid :00, GitHub's busiest minute.
     - cron: "27,37,47,57 4 * * *"
     - cron: "7,17 5 * * *"
+  repository_dispatch:
+    # Fired on the minute by an external cron (cron-job.org); the GitHub schedule above is the backup.
+    types: [daily-digest]
   workflow_dispatch:
     inputs:
       dry_run:
@@ -36,10 +39,11 @@ jobs:
         id: day
         run: echo "date=$(TZ=Asia/Kolkata date +%F)" >> "$GITHUB_OUTPUT"
 
-      # Manual and test runs skip this check, so they always post and never mark the day as done.
+      # Every post to the real channel (scheduled, external trigger, or manual with the test box unticked)
+      # checks and sets the marker, so #tech-cs-issues never gets two. Test-channel and dry runs skip it.
       - name: Check if today's digest was already posted
         id: sent
-        if: github.event_name == 'schedule'
+        if: github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)
         uses: actions/cache/restore@v4
         with:
           path: .sent-marker
@@ -70,11 +74,11 @@ jobs:
 
       # Only reached if the post succeeded (a failed post skips this, so the next try retries).
       - name: Mark today's digest as posted
-        if: github.event_name == 'schedule' && steps.sent.outputs.cache-hit != 'true'
+        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.sent.outputs.cache-hit != 'true'
         run: date -u > .sent-marker
 
       - name: Remember today's digest was posted
-        if: github.event_name == 'schedule' && steps.sent.outputs.cache-hit != 'true'
+        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.sent.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: .sent-marker

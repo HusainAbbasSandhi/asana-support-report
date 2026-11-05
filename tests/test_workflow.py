@@ -3,6 +3,11 @@ from pathlib import Path
 import yaml
 
 WF = Path(__file__).parent.parent / ".github" / "workflows"
+GUARD = "github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)"
+
+
+def on_types(name):
+    return _load(name)[1]["repository_dispatch"]["types"]
 
 
 def _load(name):
@@ -51,13 +56,14 @@ def _check_once_a_day(name, report):
     assert check["uses"].startswith("actions/cache/restore@")
     assert check["with"]["lookup-only"] is True
     assert f"sent-{report}-" in check["with"]["key"] and "steps.day.outputs.date" in check["with"]["key"]
-    assert check["if"] == "github.event_name == 'schedule'"   # manual/test runs are never blocked
+    assert check["if"] == GUARD   # only test-channel / dry runs skip the guard
     post = _step(data, "Build and post")
     assert "steps.sent.outputs.cache-hit != 'true'" in post["if"]
     save = _step(data, "Remember")
     assert save["uses"].startswith("actions/cache/save@")
     assert save["with"]["key"] == check["with"]["key"]
-    assert "github.event_name == 'schedule'" in save["if"] and "cache-hit != 'true'" in save["if"]
+    assert GUARD in save["if"] and "cache-hit != 'true'" in save["if"]
+    assert on_types(name) == [f"{'daily-digest' if report == 'daily' else 'stalled-report'}"]
     day = _step(data, "date (IST)")
     assert "Asia/Kolkata" in day["run"]
 
