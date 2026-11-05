@@ -40,7 +40,7 @@ def _post(channel: str, payload: dict, token: str) -> str:
 
 
 def run(report: str = "daily", dry_run: bool = False, config_path: str = "config.yaml",
-        now: datetime | None = None) -> int:
+        now: datetime | None = None, test: bool = False) -> int:
     asana_token = os.environ.get("ASANA_TOKEN")
     slack_token = os.environ.get("SLACK_BOT_TOKEN")
     if not asana_token:
@@ -71,7 +71,8 @@ def run(report: str = "daily", dry_run: bool = False, config_path: str = "config
         if dry_run:
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 0
-        ts = _post(config["slack"]["channel"], payload, slack_token)
+        channel = config["slack"]["test_channel"] if test else config["slack"]["channel"]
+        ts = _post(channel, payload, slack_token)
     except (AsanaError, SlackError) as exc:
         _err(str(exc))
         return 1
@@ -86,9 +87,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Post an Asana tech requests report to Slack.")
     parser.add_argument("--report", choices=REPORTS, default="daily")
     parser.add_argument("--dry-run", action="store_true", help="print the Slack payload instead of posting")
+    parser.add_argument("--test", action="store_true", help="post to slack.test_channel instead of the real channel")
     parser.add_argument("--config", default="config.yaml")
     args = parser.parse_args()
-    sys.exit(run(report=args.report, dry_run=args.dry_run, config_path=args.config))
+    sys.exit(run(report=args.report, dry_run=args.dry_run, config_path=args.config, test=args.test))
 
 
 if __name__ == "__main__":

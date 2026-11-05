@@ -35,6 +35,13 @@ def test_stalled_runs_just_before_14_ist_with_stalled_report():
     assert "workflow_dispatch" in on
 
 
+def test_report_workflows_offer_test_channel_option():
+    for name in ("digest.yml", "stalled.yml"):
+        data, on = _load(name)
+        assert on["workflow_dispatch"]["inputs"]["test_channel"]["type"] == "boolean"
+        assert "inputs.test_channel && '--test'" in _runs(data)
+
+
 def test_separate_test_workflow_runs_pytest_on_push():
     data, on = _load("tests.yml")
     assert "push" in on and "pull_request" in on

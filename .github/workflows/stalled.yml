@@ -10,6 +10,10 @@ on:
         description: "Print the message in the log instead of posting to Slack"
         type: boolean
         default: false
+      test_channel:
+        description: "Post to #test-channel instead of #tech-cs-issues"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -38,4 +42,4 @@ jobs:
           PYTHONPATH: src
           ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        run: python -m digest_bot.main --report stalled ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: python -m digest_bot.main --report stalled ${{ inputs.dry_run && '--dry-run' || '' }} ${{ inputs.test_channel && '--test' || '' }}

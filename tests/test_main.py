@@ -69,6 +69,17 @@ def test_assignees_shown_as_bold_names_only_leads_mentioned(monkeypatch, capsys,
     assert "xoxb-secret" not in capsys.readouterr().out
 
 
+def test_test_flag_posts_to_test_channel(monkeypatch, stub_asana):
+    monkeypatch.setenv("ASANA_TOKEN", "a")
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "x")
+    channels = []
+    monkeypatch.setattr(main_mod, "post_message", lambda ch, payload, token: channels.append(ch) or "1.1")
+    assert main_mod.run(report="daily", dry_run=False, config_path=CONFIG, now=NOW, test=True) == 0
+    assert main_mod.run(report="stalled", dry_run=False, config_path=CONFIG, now=NOW, test=True) == 0
+    assert main_mod.run(report="daily", dry_run=False, config_path=CONFIG, now=NOW) == 0
+    assert channels == ["C0CF6BY6KHS", "C0CF6BY6KHS", "C075PCA1NF7"]
+
+
 def test_invalid_blocks_falls_back_to_monospace_once(monkeypatch, stub_asana):
     monkeypatch.setenv("ASANA_TOKEN", "a")
     monkeypatch.setenv("SLACK_BOT_TOKEN", "x")
