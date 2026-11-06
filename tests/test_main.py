@@ -53,7 +53,7 @@ def test_daily_dry_run_only_support_tasks_no_slack(monkeypatch, capsys, stub_asa
     assert main_mod.run(report="daily", dry_run=True, config_path=CONFIG, now=NOW) == 0
     out = capsys.readouterr().out
     assert "Raised by tech" not in out
-    assert '"Open tickets pending on Prod & Tech"' in out
+    assert '"Open requests pending on Prod & Tech"' in out
     assert stub_asana == ["111"]  # comments fetched only for in-scope tasks
 
 
@@ -112,7 +112,7 @@ def test_task_in_both_projects_counted_once(monkeypatch, capsys, no_slack):
 def test_stalled_report_dry_run(monkeypatch, capsys, stub_asana, no_slack):
     monkeypatch.setenv("ASANA_TOKEN", "a")
     assert main_mod.run(report="stalled", dry_run=True, config_path=CONFIG, now=NOW) == 0
-    assert "No stalled conversations today" in capsys.readouterr().out
+    assert "No stalled conversations" in capsys.readouterr().out
 
 
 def test_missing_tokens(monkeypatch, no_slack):

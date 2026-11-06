@@ -12,7 +12,7 @@ import requests
 
 from digest_bot.asana_client import AsanaError, fetch_open_tasks, fetch_stories
 from digest_bot.config import load_config
-from digest_bot.digest import build_daily, build_stalled, escape, monospace_fallback
+from digest_bot.digest import PROJECTS, build_daily, build_stalled, escape, monospace_fallback
 from digest_bot.metrics import daily_report, stalled_report
 from digest_bot.models import comments_from_stories, from_asana, raised_by
 from digest_bot.slack_client import SlackError, post_message
@@ -56,18 +56,25 @@ def run(report: str = "daily", dry_run: bool = False, config_path: str = "config
     session = requests.Session()  # one connection pool for every Asana call
     try:
         by_gid: dict[str, object] = {}
-        for gid in (config["asana"]["bug_tracking"], config["asana"]["requests_to_tech"]):
+        project_of: dict[str, str] = {}
+        for key, _, _ in PROJECTS:  # Bug Tracking first, so a task in both projects counts there once
+            gid = config["asana"][key]
             for t in raised_by([from_asana(r, gid) for r in fetch_open_tasks(gid, asana_token, session=session)], team):
-                by_gid.setdefault(t.gid, t)  # a task in both projects counts once
+                if t.gid not in by_gid:
+                    by_gid[t.gid] = t
+                    project_of[t.gid] = key
         tasks = list(by_gid.values())
         with ThreadPoolExecutor(max_workers=STORY_WORKERS) as pool:
             stories = pool.map(lambda t: fetch_stories(t.gid, asana_token, session=session), tasks)
             comments = {t.gid: comments_from_stories(s) for t, s in zip(tasks, stories)}
         tag = _label
+        split = {key: [t for t in tasks if project_of[t.gid] == key] for key, _, _ in PROJECTS}
         if report == "stalled":
-            payload = build_stalled(stalled_report(tasks, comments, team, now), config, now, tag)
+            payload = build_stalled({k: stalled_report(ts, comments, team, now) for k, ts in split.items()},
+                                    config, now, tag)
         else:
-            payload = build_daily(daily_report(tasks, comments, team, now), config, now, tag)
+            payload = build_daily({k: daily_report(ts, comments, team, now) for k, ts in split.items()},
+                                  config, now, tag)
         if dry_run:
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 0

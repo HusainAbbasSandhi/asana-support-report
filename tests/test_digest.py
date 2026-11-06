@@ -31,6 +31,14 @@ def report(no_reply=(), **kw):
     return DailyReport(**base)
 
 
+def daily(bug=None, req=None):
+    return build_daily({"bug_tracking": bug or report(), "requests_to_tech": req or report(open=4)}, CFG, NOW, tag)
+
+
+def stalled(bug=(), req=()):
+    return build_stalled({"bug_tracking": list(bug), "requests_to_tech": list(req)}, CFG, NOW, tag)
+
+
 def texts(payload):
     return "\n".join(b["text"]["text"] for b in payload["blocks"] if b["type"] == "section")
 
@@ -44,18 +52,18 @@ def test_escape():
 
 
 def test_daily_header_date_ist_and_cc():
-    p = build_daily(report(), CFG, NOW, tag)
+    p = daily(report())
     t = texts(p)
     assert "Daily Digest · Thursday, 5 Nov" in t
     assert "<@U04H2DR5JJ1> <@U01NJ4W5RLL> <@U01GGKD7468>" in t
 
 
 def test_daily_table_rows_and_values():
-    rows = table(build_daily(report(no_reply=[make_task()] * 30), CFG, NOW, tag))["rows"]
+    rows = table(daily(report(no_reply=[make_task()] * 30)))["rows"]
     flat = [[cell["text"] for cell in row] for row in rows]
     assert flat == [
         ["Metric", "Count"],
-        ["Open tickets pending on Prod & Tech", "71"],
+        ["Open requests pending on Prod & Tech", "71"],
         ["Open for more than 4 days", "50"],
         ["Assigned to a support team member", "6"],
         ["First response pending by Prod & Tech (2+ days)", "30"],
@@ -64,7 +72,7 @@ def test_daily_table_rows_and_values():
 
 
 def test_daily_raised_by_line():
-    assert "Raised by: Haydar Abbas 23 · Ishika Batra 17" in texts(build_daily(report(), CFG, NOW, tag))
+    assert "Raised by: Haydar Abbas 23 · Ishika Batra 17" in texts(daily(report()))
 
 
 def test_no_reply_grouped_with_tags_counts_and_ages():
@@ -72,7 +80,7 @@ def test_no_reply_grouped_with_tags_counts_and_ages():
     p2 = make_task(age_days=3, assignee="Priyank", name="Newer one")
     j1 = make_task(age_days=2.5, assignee="Joel")
     u1 = make_task(age_days=4, assignee=None, email=None)
-    t = texts(build_daily(report(no_reply=[j1, p2, u1, p1]), CFG, NOW, tag))
+    t = texts(daily(report(no_reply=[j1, p2, u1, p1])))
     assert "First response pending by Prod &amp; Tech (2+ days) — 4" in t
     assert t.index("<@Priyank> — 2 waiting") < t.index("<@Joel> — 1 waiting") < t.index("*Unassigned* — 1 waiting")
     assert t.index("Old one") < t.index("Newer one")
@@ -81,34 +89,34 @@ def test_no_reply_grouped_with_tags_counts_and_ages():
 
 def test_no_reply_group_capped_at_ten():
     tasks = [make_task(assignee="Priyank") for _ in range(13)]
-    block = next(b["text"]["text"] for b in build_daily(report(no_reply=tasks), CFG, NOW, tag)["blocks"]
+    block = next(b["text"]["text"] for b in daily(report(no_reply=tasks))["blocks"]
                  if b["type"] == "section" and "<@Priyank> — 13 waiting" in b["text"]["text"])
     assert block.count("• ") == 10 and "+3 more" in block
 
 
 def test_no_reply_empty_state():
-    assert "✅" in texts(build_daily(report(no_reply=[]), CFG, NOW, tag))
+    assert "✅" in texts(daily(report(no_reply=[])))
 
 
 def test_titles_escaped():
-    t = texts(build_daily(report(no_reply=[make_task(name="A <b> & c")]), CFG, NOW, tag))
+    t = texts(daily(report(no_reply=[make_task(name="A <b> & c")])))
     assert "A &lt;b&gt; &amp; c" in t
 
 
 def test_footer_links():
-    t = texts(build_daily(report(), CFG, NOW, tag))
+    t = texts(daily(report()))
     assert "project/1202029361021711|" in t and "project/1208716124012867|" in t
 
 
 def test_blocks_within_limits():
     tasks = [make_task(assignee=f"Person {i % 12}", name="y" * 200, url="https://x/" + "z" * 120) for i in range(300)]
-    p = build_daily(report(no_reply=tasks), CFG, NOW, tag)
+    p = daily(report(no_reply=tasks))
     assert len(p["blocks"]) <= 50
     assert all(len(b["text"]["text"]) <= 3000 for b in p["blocks"] if b["type"] == "section")
 
 
 def test_monospace_fallback_replaces_table_with_code_block():
-    p = monospace_fallback(build_daily(report(), CFG, NOW, tag))
+    p = monospace_fallback(daily(report()))
     assert not any(b["type"] == "table" for b in p["blocks"])
     t = texts(p)
     assert "```" in t and "Open for more than 4 days" in t and "50" in t
@@ -117,12 +125,29 @@ def test_monospace_fallback_replaces_table_with_code_block():
 def test_stalled_lists_last_comment_and_tags():
     t1 = make_task(assignee="Joel", name="Yuki mismatch")
     last = Comment(NOW - timedelta(days=2, hours=1), "s1", "Haydar Abbas")
-    t = texts(build_stalled([(t1, last)], CFG, NOW, tag))
+    t = texts(stalled([(t1, last)]))
     assert "Stalled conversations · Thursday, 5 Nov" in t
     assert "<@Joel> — 1 stalled" in t
     assert "Yuki mismatch" in t and "last comment 2 days ago by Haydar Abbas" in t
 
 
 def test_stalled_empty_state_still_posts():
-    p = build_stalled([], CFG, NOW, tag)
-    assert "✅ No stalled conversations today" in texts(p)
+    p = stalled()
+    assert "✅ No stalled conversations" in texts(p)
+
+
+def test_daily_has_one_section_per_project_bug_tracking_first():
+    p = daily(report(no_reply=[make_task(name="Bug one")]), report(open=4, no_reply=[make_task(name="Req one")]))
+    t = texts(p)
+    assert t.index("🐞 BUG TRACKING") < t.index("Bug one") < t.index("📨 REQUESTS TO TECH TEAM") < t.index("Req one")
+    tables = [b for b in p["blocks"] if b["type"] == "table"]
+    assert [r[1]["text"] for r in (tables[0]["rows"][1], tables[1]["rows"][1])] == ["71", "4"]
+    assert t.index("project/1202029361021711|Open Bug Tracking") < t.index("project/1208716124012867|Open Requests")
+    assert "ticket" not in t.lower()
+
+
+def test_stalled_split_by_project_with_empty_state():
+    t1 = make_task(assignee="Joel", name="Bug stalled")
+    t = texts(stalled(bug=[(t1, Comment(NOW - timedelta(days=2), "s1", "Haydar"))]))
+    assert t.index("🐞 BUG TRACKING — 1 stalled") < t.index("Bug stalled") < t.index("📨 REQUESTS TO TECH TEAM — 0 stalled")
+    assert "✅ No stalled conversations" in t and "ticket" not in t.lower()

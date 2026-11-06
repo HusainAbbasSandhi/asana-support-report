@@ -42,11 +42,12 @@ def _date(now: datetime, config: dict) -> str:
     return f"{local:%A}, {local.day} {local:%b}"
 
 
-def _footer(config: dict) -> dict:
-    ws = config["asana"]["workspace"]
-    bug = PROJECT_URL.format(workspace=ws, gid=config["asana"]["bug_tracking"])
-    req = PROJECT_URL.format(workspace=ws, gid=config["asana"]["requests_to_tech"])
-    return _section(f"🔗 <{bug}|Open Bug Tracking> · <{req}|Open Requests to Tech Team>")
+PROJECTS = (("bug_tracking", "🐞", "Bug Tracking"), ("requests_to_tech", "📨", "Requests to Tech Team"))
+
+
+def _project_link(key: str, label: str, config: dict) -> dict:
+    url = PROJECT_URL.format(workspace=config["asana"]["workspace"], gid=config["asana"][key])
+    return _section(f"🔗 <{url}|Open {label}>")
 
 
 def _group_block(heading: str, bullets: list[str]) -> dict:
@@ -71,45 +72,49 @@ def _cell(text: str) -> dict:
 
 NO_REPLY_LABEL = "First response pending by Prod & Tech (2+ days)"
 TABLE_ROWS = [
-    ("Open tickets pending on Prod & Tech", "open"),
+    ("Open requests pending on Prod & Tech", "open"),
     ("Open for more than 4 days", "over_4d"),
     ("Assigned to a support team member", "assigned_to_support"),
 ]
 
 
-def build_daily(report: DailyReport, config: dict, now: datetime, tag: Tag) -> dict:
-    mentions = " ".join(f"<@{u}>" for u in config["slack"]["mention_user_ids"])
-    header = f"🛠️ Tech Requests — Daily Digest · {_date(now, config)}"
-    rows = [("Metric", "Count")] + [(label, str(getattr(report, attr))) for label, attr in TABLE_ROWS]
+def _daily_section(key: str, emoji: str, label: str, report: DailyReport, config: dict,
+                   now: datetime, tag: Tag) -> list[dict]:
+    rows = [("Metric", "Count")] + [(name, str(getattr(report, attr))) for name, attr in TABLE_ROWS]
     rows.append((NO_REPLY_LABEL, str(len(report.no_reply))))
-    table = {
-        "type": "table",
-        "column_settings": [{"is_wrapped": True}, {"align": "right"}],
-        "rows": [[_cell(a), _cell(b)] for a, b in rows],
-    }
     blocks = [
-        _section(f"*{header}*\ncc {mentions}\n_Open tickets raised by the support team · "
-                 f"Bug Tracking + Requests to Tech Team_"),
-        table,
+        {"type": "divider"},
+        _section(f"*{emoji} {label.upper()}*"),
+        {"type": "table", "column_settings": [{"is_wrapped": True}, {"align": "right"}],
+         "rows": [[_cell(a), _cell(b)] for a, b in rows]},
     ]
     if report.raised_by:
         blocks.append(_section("Raised by: " + " · ".join(f"{escape(n)} {c}" for n, c in report.raised_by)))
-    blocks.append({"type": "divider"})
     blocks.append(_section(f"*⏳ {escape(NO_REPLY_LABEL)} — {len(report.no_reply)}*\n"
-                           f"_Tickets with a due date are not included_"))
+                           f"_Requests with a due date are not included_"))
     if report.no_reply:
         blocks += _groups(report.no_reply, lambda t: t, "waiting",
                           lambda t: f"• {_link(t)} — {_days(max(0, (now - t.created_at).days))}", tag)
     else:
-        blocks.append(_section("✅ Every ticket older than 2 days has a first response from Prod &amp; Tech"))
-    blocks += [{"type": "divider"}, _footer(config)]
+        blocks.append(_section("✅ Every request older than 2 days has a first response from Prod &amp; Tech"))
+    blocks.append(_project_link(key, label, config))
+    return blocks
+
+
+def build_daily(reports: dict[str, DailyReport], config: dict, now: datetime, tag: Tag) -> dict:
+    """One message, one section per project: Bug Tracking first, then Requests to Tech Team."""
+    mentions = " ".join(f"<@{u}>" for u in config["slack"]["mention_user_ids"])
+    header = f"🛠️ Tech Requests — Daily Digest · {_date(now, config)}"
+    blocks = [_section(f"*{header}*\ncc {mentions}\n_Open requests raised by the support team_")]
+    for key, emoji, label in PROJECTS:
+        blocks += _daily_section(key, emoji, label, reports.get(key) or DailyReport(0, 0, 0), config, now, tag)
     return {"text": f"{header} — cc {mentions}", "blocks": blocks[:50]}
 
 
-def build_stalled(items: list[tuple[Task, Comment]], config: dict, now: datetime, tag: Tag) -> dict:
+def build_stalled(items: dict[str, list[tuple[Task, Comment]]], config: dict, now: datetime, tag: Tag) -> dict:
     header = f"⏰ Stalled conversations · {_date(now, config)}"
-    blocks = [_section(f"*{header}*\n_Open support tickets where Prod &amp; Tech replied, "
-                       f"but nobody has commented for 24h+ · tickets with a due date are not included_")]
+    blocks = [_section(f"*{header}*\n_Open support requests where Prod &amp; Tech replied, "
+                       f"but nobody has commented for 24h+ · requests with a due date are not included_")]
 
     def bullet(item):
         task, last = item
@@ -117,11 +122,14 @@ def build_stalled(items: list[tuple[Task, Comment]], config: dict, now: datetime
         who = f" by {escape(last.author_name)}" if last.author_name else ""
         return f"• {_link(task)} — last comment {ago} ago{who}"
 
-    if items:
-        blocks += _groups(items, lambda it: it[0], "stalled", bullet, tag)
-    else:
-        blocks.append(_section("✅ No stalled conversations today"))
-    blocks += [{"type": "divider"}, _footer(config)]
+    for key, emoji, label in PROJECTS:
+        its = items.get(key) or []
+        blocks += [{"type": "divider"}, _section(f"*{emoji} {label.upper()} — {len(its)} stalled*")]
+        if its:
+            blocks += _groups(its, lambda it: it[0], "stalled", bullet, tag)
+        else:
+            blocks.append(_section("✅ No stalled conversations"))
+        blocks.append(_project_link(key, label, config))
     return {"text": header, "blocks": blocks[:50]}
 
 
