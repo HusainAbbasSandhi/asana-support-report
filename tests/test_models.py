@@ -173,6 +173,6 @@ def test_comments_from_stories_keeps_only_comments_sorted():
 
 def test_load_config_reads_ids():
     cfg = load_config(str(Path(__file__).parent.parent / "config.yaml"))
-    assert cfg["slack"]["channel"] == "C075PCA1NF7"
+    assert cfg["slack"]["channel"] in ("C075PCA1NF7", "C0CF6BY6KHS")  # #tech-cs-issues, or #test-channel while paused
     assert cfg["asana"]["bug_tracking"] == BUG_GID
     assert cfg["limits"]["list_max"] == 10

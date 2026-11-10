@@ -17,7 +17,8 @@ asana:
     "1211520249551622": "Adithya Kaushik"
     "1211616394608433": "Nilesh Chauhan"
 slack:
-  channel: "C075PCA1NF7"          # #tech-cs-issues — scheduled posts
+  # PAUSED 2026-11-10: real posts go to #test-channel. To resume, set back to "C075PCA1NF7" (#tech-cs-issues).
+  channel: "C0CF6BY6KHS"
   test_channel: "C0CF6BY6KHS"     # #test-channel — manual runs with "test" ticked
   mention_user_ids: ["U04H2DR5JJ1", "U01NJ4W5RLL", "U01GGKD7468"]
 limits:
