@@ -35,7 +35,18 @@ jobs:
     steps:
       - name: Today's date (IST)
         id: day
-        run: echo "date=$(TZ=Asia/Kolkata date +%F)" >> "$GITHUB_OUTPUT"
+        # GitHub's scheduler can start a backup run hours late (one fired at 00:26 IST and posted
+        # under the next day's date). Scheduled runs only post inside the window; the cron-job.org
+        # trigger and manual runs are never blocked.
+        run: |
+          echo "date=$(TZ=Asia/Kolkata date +%F)" >> "$GITHUB_OUTPUT"
+          now=$(TZ=Asia/Kolkata date +%H%M)
+          if [ "${{ github.event_name }}" != "schedule" ] || { [ "$now" -ge 1350 ] && [ "$now" -le 1530 ]; }; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Scheduled run started at $now IST, outside 1350-1530; not posting"
+          fi
 
       - name: Check if today's report was already posted
         id: sent
@@ -43,24 +54,24 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .sent-marker
-          key: sent-stalled-${{ steps.day.outputs.date }}
+          key: sent-v2-stalled-${{ steps.day.outputs.date }}
           lookup-only: true
 
       - uses: actions/checkout@v5
-        if: steps.sent.outputs.cache-hit != 'true'
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
 
       - uses: actions/setup-python@v6
-        if: steps.sent.outputs.cache-hit != 'true'
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Install dependencies
-        if: steps.sent.outputs.cache-hit != 'true'
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
         run: pip install -r requirements.txt
 
       - name: Build and post stalled report
-        if: steps.sent.outputs.cache-hit != 'true'
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
         env:
           PYTHONPATH: src
           ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
@@ -68,12 +79,12 @@ jobs:
         run: python -m digest_bot.main --report stalled ${{ inputs.dry_run && '--dry-run' || '' }} ${{ inputs.test_channel && '--test' || '' }}
 
       - name: Mark today's report as posted
-        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.sent.outputs.cache-hit != 'true'
+        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
         run: date -u > .sent-marker
 
       - name: Remember today's report was posted
-        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.sent.outputs.cache-hit != 'true'
+        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: .sent-marker
-          key: sent-stalled-${{ steps.day.outputs.date }}
+          key: sent-v2-stalled-${{ steps.day.outputs.date }}

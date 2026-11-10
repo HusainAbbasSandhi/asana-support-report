@@ -55,7 +55,7 @@ def _check_once_a_day(name, report):
     check = _step(data, "already posted")
     assert check["uses"].startswith("actions/cache/restore@")
     assert check["with"]["lookup-only"] is True
-    assert f"sent-{report}-" in check["with"]["key"] and "steps.day.outputs.date" in check["with"]["key"]
+    assert f"sent-v2-{report}-" in check["with"]["key"] and "steps.day.outputs.date" in check["with"]["key"]
     assert check["if"] == GUARD   # only test-channel / dry runs skip the guard
     post = _step(data, "Build and post")
     assert "steps.sent.outputs.cache-hit != 'true'" in post["if"]
@@ -101,3 +101,12 @@ def test_manifest_has_lookup_scopes():
     m = yaml.safe_load((Path(__file__).parent.parent / "slack-app-manifest.yaml").read_text(encoding="utf-8"))
     scopes = m["oauth_config"]["scopes"]["bot"]
     assert {"chat:write", "users:read", "users:read.email"} <= set(scopes)
+
+
+def test_late_scheduled_runs_do_not_post():
+    for name, lo, hi in (("digest.yml", "0950", "1130"), ("stalled.yml", "1350", "1530")):
+        data, _ = _load(name)
+        day = _step(data, "date (IST)")
+        assert f"-ge {lo}" in day["run"] and f"-le {hi}" in day["run"] and "!= \"schedule\"" in day["run"]
+        assert "steps.day.outputs.ok == 'true'" in _step(data, "Build and post")["if"]
+        assert "steps.day.outputs.ok == 'true'" in _step(data, "Remember")["if"]

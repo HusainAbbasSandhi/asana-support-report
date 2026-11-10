@@ -37,7 +37,18 @@ jobs:
     steps:
       - name: Today's date (IST)
         id: day
-        run: echo "date=$(TZ=Asia/Kolkata date +%F)" >> "$GITHUB_OUTPUT"
+        # GitHub's scheduler can start a backup run hours late (one fired at 00:26 IST and posted
+        # under the next day's date). Scheduled runs only post inside the window; the cron-job.org
+        # trigger and manual runs are never blocked.
+        run: |
+          echo "date=$(TZ=Asia/Kolkata date +%F)" >> "$GITHUB_OUTPUT"
+          now=$(TZ=Asia/Kolkata date +%H%M)
+          if [ "${{ github.event_name }}" != "schedule" ] || { [ "$now" -ge 0950 ] && [ "$now" -le 1130 ]; }; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Scheduled run started at $now IST, outside 0950-1130; not posting"
+          fi
 
       # Every post to the real channel (scheduled, external trigger, or manual with the test box unticked)
       # checks and sets the marker, so #tech-cs-issues never gets two. Test-channel and dry runs skip it.
@@ -47,25 +58,25 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .sent-marker
-          key: sent-daily-${{ steps.day.outputs.date }}
+          key: sent-v2-daily-${{ steps.day.outputs.date }}
           lookup-only: true
 
       - uses: actions/checkout@v5
-        if: steps.sent.outputs.cache-hit != 'true'
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
 
       - uses: actions/setup-python@v6
-        if: steps.sent.outputs.cache-hit != 'true'
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Install dependencies
-        if: steps.sent.outputs.cache-hit != 'true'
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
         run: pip install -r requirements.txt
 
       # Tests run in tests.yml on every push, so a failing test never blocks the daily post.
       - name: Build and post digest
-        if: steps.sent.outputs.cache-hit != 'true'
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
         env:
           PYTHONPATH: src
           ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
@@ -74,12 +85,12 @@ jobs:
 
       # Only reached if the post succeeded (a failed post skips this, so the next try retries).
       - name: Mark today's digest as posted
-        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.sent.outputs.cache-hit != 'true'
+        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
         run: date -u > .sent-marker
 
       - name: Remember today's digest was posted
-        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.sent.outputs.cache-hit != 'true'
+        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: .sent-marker
-          key: sent-daily-${{ steps.day.outputs.date }}
+          key: sent-v2-daily-${{ steps.day.outputs.date }}
