@@ -105,7 +105,7 @@ def test_titles_escaped():
 
 def test_footer_links():
     t = texts(daily(report()))
-    assert "project/1202029361021711|" in t and "project/1208716124012867|" in t
+    assert "project/1202029361021711|" in t
 
 
 def test_blocks_within_limits():
@@ -136,18 +136,20 @@ def test_stalled_empty_state_still_posts():
     assert "✅ No stalled conversations" in texts(p)
 
 
-def test_daily_has_one_section_per_project_bug_tracking_first():
+def test_daily_reports_bug_tracking_only():
     p = daily(report(no_reply=[make_task(name="Bug one")]), report(open=4, no_reply=[make_task(name="Req one")]))
     t = texts(p)
-    assert t.index("🐞 BUG TRACKING") < t.index("Bug one") < t.index("📨 REQUESTS TO TECH TEAM") < t.index("Req one")
-    tables = [b for b in p["blocks"] if b["type"] == "table"]
-    assert [r[1]["text"] for r in (tables[0]["rows"][1], tables[1]["rows"][1])] == ["71", "4"]
-    assert t.index("project/1202029361021711|Open Bug Tracking") < t.index("project/1208716124012867|Open Requests")
+    assert "🐞 BUG TRACKING" in t and "Bug one" in t
+    assert "REQUESTS TO TECH" not in t and "Req one" not in t and "1208716124012867" not in t
+    assert len([b for b in p["blocks"] if b["type"] == "table"]) == 1
     assert "ticket" not in t.lower()
 
 
-def test_stalled_split_by_project_with_empty_state():
+def test_stalled_bug_tracking_only():
     t1 = make_task(assignee="Joel", name="Bug stalled")
-    t = texts(stalled(bug=[(t1, Comment(NOW - timedelta(days=2), "s1", "Haydar"))]))
-    assert t.index("🐞 BUG TRACKING — 1 stalled") < t.index("Bug stalled") < t.index("📨 REQUESTS TO TECH TEAM — 0 stalled")
-    assert "✅ No stalled conversations" in t and "ticket" not in t.lower()
+    t2 = make_task(assignee="Joel", name="Req stalled")
+    last = Comment(NOW - timedelta(days=2), "s1", "Haydar")
+    t = texts(stalled(bug=[(t1, last)], req=[(t2, last)]))
+    assert "🐞 BUG TRACKING — 1 stalled" in t and "Bug stalled" in t
+    assert "Req stalled" not in t and "REQUESTS TO TECH" not in t
+    assert "✅ No stalled conversations" in texts(stalled())

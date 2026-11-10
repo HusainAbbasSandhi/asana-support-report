@@ -42,7 +42,9 @@ def _date(now: datetime, config: dict) -> str:
     return f"{local:%A}, {local.day} {local:%b}"
 
 
-PROJECTS = (("bug_tracking", "🐞", "Bug Tracking"), ("requests_to_tech", "📨", "Requests to Tech Team"))
+# Only Bug Tracking is reported (Husain, 10 Nov). To bring Requests to Tech Team back, add:
+# ("requests_to_tech", "📨", "Requests to Tech Team")
+PROJECTS = (("bug_tracking", "🐞", "Bug Tracking"),)
 
 
 def _project_link(key: str, label: str, config: dict) -> dict:
