@@ -63,18 +63,18 @@ def test_daily_header_date_ist_and_cc():
 def test_daily_summary_is_one_table_metrics_left_raised_by_right():
     summary = tables(daily(report(no_reply=[make_task()] * 30)))[0]
     assert summary == [
-        ["Metric", "Count", "Raised by", "Count"],
-        ["Open requests pending on Prod & Tech", "71", "Haydar Abbas", "23"],
-        ["Open for more than 4 days", "50", "Ishika Batra", "17"],
-        ["Assigned to a support team member", "6", "", ""],
-        ["First response pending by Prod & Tech (2+ days)", "30", "", ""],
+        ["📊 Summary", "Count", "┃", "┃", "🙋 Raised by", "Count"],
+        ["Open requests pending on Prod & Tech", "71", "┃", "┃", "Haydar Abbas", "23"],
+        ["Open for more than 4 days", "50", "┃", "┃", "Ishika Batra", "17"],
+        ["Assigned to a support team member", "6", "┃", "┃", "", ""],
+        ["First response pending by Prod & Tech (2+ days)", "30", "┃", "┃", "", ""],
     ]
 
 
 def test_daily_summary_grows_when_more_than_four_agents():
     agents = [(f"Agent {i}", 6 - i) for i in range(6)]
     summary = tables(daily(report(raised_by=agents)))[0]
-    assert len(summary) == 7 and summary[6] == ["", "", "Agent 5", "1"]
+    assert len(summary) == 7 and summary[6] == ["", "", "┃", "┃", "Agent 5", "1"]
 
 
 def test_daily_pending_table_has_raised_by_assignee_and_age():

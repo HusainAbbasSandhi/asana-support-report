@@ -85,6 +85,8 @@ TABLE_ROWS = [
     ("Assigned to a support team member", "assigned_to_support"),
 ]
 RIGHT = {"align": "right"}
+CENTER = {"align": "center"}
+DIVIDER = "┃"  # two divider columns make the summary read as two tables side by side
 WRAP = {"is_wrapped": True}
 
 
@@ -97,13 +99,14 @@ def _daily_section(key: str, emoji: str, label: str, report: DailyReport, config
     # One table: summary metrics on the left, raised-by counts on the right; the shorter side is padded.
     height = max(len(metrics), len(raised))
     pad = [("", "")]
-    summary = [[_cell(a), _cell(b), _cell(c), _cell(d)]
+    summary = [[_cell(a), _cell(b), _cell(DIVIDER), _cell(DIVIDER), _cell(c), _cell(d)]
                for (a, b), (c, d) in zip(metrics + pad * (height - len(metrics)),
                                          raised + pad * (height - len(raised)))]
     blocks = [
         {"type": "divider"},
         _section(f"*{emoji} {label.upper()}*"),
-        _table(["Metric", "Count", "Raised by", "Count"], summary, [WRAP, RIGHT, WRAP, RIGHT]),
+        _table(["📊 Summary", "Count", DIVIDER, DIVIDER, "🙋 Raised by", "Count"], summary,
+               [WRAP, RIGHT, CENTER, CENTER, WRAP, RIGHT]),
     ]
     blocks.append(_section(f"*⏳ {escape(NO_REPLY_LABEL)} — {len(report.no_reply)}*\n"
                            f"_Requests with a due date are not included_"))
