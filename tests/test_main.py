@@ -144,3 +144,14 @@ def test_stories_error_fails_run(monkeypatch, stub_asana, no_slack):
 
     monkeypatch.setattr(main_mod, "fetch_stories", fail)
     assert main_mod.run(report="daily", dry_run=False, config_path=CONFIG, now=NOW) == 1
+
+
+def test_ignored_commenters_do_not_count_as_prod_tech_reply(monkeypatch, capsys, no_slack):
+    bug = _bug()
+    bolddesk = {"resource_subtype": "comment_added", "created_at": (NOW - timedelta(hours=5)).isoformat().replace("+00:00", "Z"),
+                "created_by": {"gid": "1206307213098057", "name": "Support Team"}}
+    monkeypatch.setattr(main_mod, "fetch_open_tasks", lambda gid, token, **kw: [bug] if gid == BUG_GID else [])
+    monkeypatch.setattr(main_mod, "fetch_stories", lambda gid, token, **kw: [bolddesk])
+    monkeypatch.setenv("ASANA_TOKEN", "a")
+    assert main_mod.run(report="stalled", dry_run=True, config_path=CONFIG, now=NOW) == 0
+    assert "no reply from Prod &amp; Tech yet" in capsys.readouterr().out

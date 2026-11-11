@@ -66,7 +66,9 @@ def run(report: str = "daily", dry_run: bool = False, config_path: str = "config
         tasks = list(by_gid.values())
         with ThreadPoolExecutor(max_workers=STORY_WORKERS) as pool:
             stories = pool.map(lambda t: fetch_stories(t.gid, asana_token, session=session), tasks)
-            comments = {t.gid: comments_from_stories(s) for t, s in zip(tasks, stories)}
+            ignored = config["asana"].get("ignore_commenters") or {}
+            comments = {t.gid: [c for c in comments_from_stories(s) if c.author_gid not in ignored]
+                        for t, s in zip(tasks, stories)}
         tag = _label
         split = {key: [t for t in tasks if project_of[t.gid] == key] for key, _, _ in PROJECTS}
         if report == "stalled":

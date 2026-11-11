@@ -16,6 +16,9 @@ asana:
     "1212745386205914": "Udit Charan"       # udit.charan@reelo.io
     "1211520249551622": "Adithya Kaushik"
     "1211616394608433": "Nilesh Chauhan"
+  # Accounts whose comments are ignored entirely (not support, not Prod & Tech): automations.
+  ignore_commenters:
+    "1206307213098057": "BoldDesk sync (shows as \"Support Team\")"
 slack:
   # PAUSED 2026-11-10: real posts go to #test-channel. To resume, set back to "C075PCA1NF7" (#tech-cs-issues).
   channel: "C0CF6BY6KHS"
