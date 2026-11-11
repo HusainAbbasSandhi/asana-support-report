@@ -12,7 +12,7 @@ import requests
 
 from digest_bot.asana_client import AsanaError, fetch_open_tasks, fetch_stories
 from digest_bot.config import load_config
-from digest_bot.digest import PROJECTS, build_daily, build_stalled, escape, monospace_fallback
+from digest_bot.digest import PROJECTS, build_daily, build_stalled, monospace_fallback
 from digest_bot.metrics import daily_report, stalled_report
 from digest_bot.models import comments_from_stories, from_asana, raised_by
 from digest_bot.slack_client import SlackError, post_message
@@ -23,11 +23,6 @@ STORY_WORKERS = 6  # parallel comment fetches; well under Asana's concurrency li
 
 def _err(msg: str) -> None:
     print(f"error: {msg}", file=sys.stderr)
-
-
-def _label(name: str | None, email: str | None) -> str:
-    """Assignee group heading: a bold name, never an @mention (the leads follow up themselves)."""
-    return f"*{escape(name)}*" if name else "*Unassigned*"
 
 
 def _post(channel: str, payload: dict, token: str) -> str:
@@ -69,14 +64,13 @@ def run(report: str = "daily", dry_run: bool = False, config_path: str = "config
             ignored = config["asana"].get("ignore_commenters") or {}
             comments = {t.gid: [c for c in comments_from_stories(s) if c.author_gid not in ignored]
                         for t, s in zip(tasks, stories)}
-        tag = _label
         split = {key: [t for t in tasks if project_of[t.gid] == key] for key, _, _ in PROJECTS}
         if report == "stalled":
             payload = build_stalled({k: stalled_report(ts, comments, team, now) for k, ts in split.items()},
-                                    config, now, tag)
+                                    config, now)
         else:
             payload = build_daily({k: daily_report(ts, comments, team, now) for k, ts in split.items()},
-                                  config, now, tag)
+                                  config, now)
         if dry_run:
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 0

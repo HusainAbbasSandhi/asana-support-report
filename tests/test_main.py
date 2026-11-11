@@ -64,7 +64,7 @@ def test_assignees_shown_as_bold_names_only_leads_mentioned(monkeypatch, capsys,
     monkeypatch.setattr(main_mod, "post_message", lambda ch, payload, token: posted.append(payload) or "1.1")
     assert main_mod.run(report="daily", dry_run=False, config_path=CONFIG, now=NOW) == 0
     blob = json.dumps(posted[0], ensure_ascii=False)
-    assert "*Joel Gnan* — 1 waiting" in blob
+    assert "Joel Gnan" in blob and "\"Raised by\"" in blob
     assert set(re.findall(r"<@(U\w+)>", blob)) == {"U04H2DR5JJ1", "U01NJ4W5RLL", "U01GGKD7468"}
     assert "xoxb-secret" not in capsys.readouterr().out
 
@@ -112,7 +112,7 @@ def test_task_in_both_projects_counted_once(monkeypatch, capsys, no_slack):
 def test_stalled_report_dry_run(monkeypatch, capsys, stub_asana, no_slack):
     monkeypatch.setenv("ASANA_TOKEN", "a")
     assert main_mod.run(report="stalled", dry_run=True, config_path=CONFIG, now=NOW) == 0
-    assert "no reply from Prod &amp; Tech yet" in capsys.readouterr().out  # 5-day-old request, no comments
+    assert "No reply yet (raised" in capsys.readouterr().out  # 5-day-old request, no comments
 
 
 def test_missing_tokens(monkeypatch, no_slack):
@@ -154,4 +154,4 @@ def test_ignored_commenters_do_not_count_as_prod_tech_reply(monkeypatch, capsys,
     monkeypatch.setattr(main_mod, "fetch_stories", lambda gid, token, **kw: [bolddesk])
     monkeypatch.setenv("ASANA_TOKEN", "a")
     assert main_mod.run(report="stalled", dry_run=True, config_path=CONFIG, now=NOW) == 0
-    assert "no reply from Prod &amp; Tech yet" in capsys.readouterr().out
+    assert "No reply yet (raised" in capsys.readouterr().out
