@@ -142,3 +142,9 @@ def test_stalled_bug_tracking_only_and_empty_state():
     flat = str(tables(p))
     assert "Bug stalled" in flat and "Req stalled" not in flat and "REQUESTS TO TECH" not in texts(p)
     assert "✅ No stalled conversations" in texts(stalled())
+
+
+def test_monospace_fallback_escapes_asana_text():
+    p = monospace_fallback(daily(report(no_reply=[make_task(name="<!channel> ```x``` & co")])))
+    t = texts(p)
+    assert "<!channel>" not in t and "&lt;!channel&gt;" in t and "'''x" in t and "&amp; co" in t

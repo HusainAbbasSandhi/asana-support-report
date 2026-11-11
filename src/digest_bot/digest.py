@@ -176,7 +176,8 @@ def monospace_fallback(payload: dict) -> dict:
         if b["type"] != "table":
             blocks.append(b)
             continue
-        rows = [[_cell_text(c) for c in row] for row in b["rows"]]
+        # Asana text: escape mrkdwn control chars and stop it from closing the code block.
+        rows = [[escape(_cell_text(c)).replace("`", "'") for c in row] for row in b["rows"]]
         widths = [max(len(r[i]) for r in rows) for i in range(len(rows[0]))]
         lines = [_pad(rows[0], widths), "  ".join("-" * w for w in widths), *(_pad(r, widths) for r in rows[1:])]
         blocks.append(_section("```\n" + "\n".join(lines) + "\n```"))
