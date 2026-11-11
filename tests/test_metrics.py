@@ -72,16 +72,29 @@ def test_raised_by_merges_accounts_by_name_highest_first():
     assert daily_report(ts, {}, TEAM, NOW).raised_by == [("Haydar Abbas", 2), ("Ishika Batra", 1)]
 
 
-def test_stalled_needs_tech_reply_and_last_comment_over_24h():
-    no_tech = task(100)
+def test_stalled_first_two_days_never_count():
+    young_silent = task(47)
+    young_replied_then_quiet = task(47)
+    comments = {young_replied_then_quiet.gid: [c(46, "tech1"), c(30, "s1")]}
+    assert stalled_report([young_silent, young_replied_then_quiet], comments, TEAM, NOW) == []
+
+
+def test_stalled_after_two_days_no_reply_counts_with_none():
+    no_tech = task(49)
+    only_support = task(100)
+    comments = {only_support.gid: [c(5, "s1")]}
+    out = stalled_report([no_tech, only_support], comments, TEAM, NOW)
+    assert [(t.gid, last) for t, last in out] == [(no_tech.gid, None), (only_support.gid, None)]
+
+
+def test_stalled_after_two_days_with_reply_needs_24h_quiet():
     active = task(100)
     stalled = task(100)
     comments = {
-        no_tech.gid: [c(50, "s1")],
         active.gid: [c(50, "tech1"), c(3, "s1")],
         stalled.gid: [c(80, "tech1"), c(30, "s1")],
     }
-    out = stalled_report([no_tech, active, stalled], comments, TEAM, NOW)
+    out = stalled_report([active, stalled], comments, TEAM, NOW)
     assert [(t.gid, last.author_gid) for t, last in out] == [(stalled.gid, "s1")]
 
 

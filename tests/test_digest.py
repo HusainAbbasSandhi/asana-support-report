@@ -153,3 +153,9 @@ def test_stalled_bug_tracking_only():
     assert "🐞 BUG TRACKING — 1 stalled" in t and "Bug stalled" in t
     assert "Req stalled" not in t and "REQUESTS TO TECH" not in t
     assert "✅ No stalled conversations" in texts(stalled())
+
+
+def test_stalled_no_reply_bullet():
+    t1 = make_task(age_days=5, assignee="Joel", name="Silent one")
+    t = texts(stalled(bug=[(t1, None)]))
+    assert "Silent one" in t and "no reply from Prod &amp; Tech yet · raised 5 days ago" in t

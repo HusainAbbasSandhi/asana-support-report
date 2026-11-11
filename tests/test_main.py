@@ -112,7 +112,7 @@ def test_task_in_both_projects_counted_once(monkeypatch, capsys, no_slack):
 def test_stalled_report_dry_run(monkeypatch, capsys, stub_asana, no_slack):
     monkeypatch.setenv("ASANA_TOKEN", "a")
     assert main_mod.run(report="stalled", dry_run=True, config_path=CONFIG, now=NOW) == 0
-    assert "No stalled conversations" in capsys.readouterr().out
+    assert "no reply from Prod &amp; Tech yet" in capsys.readouterr().out  # 5-day-old request, no comments
 
 
 def test_missing_tokens(monkeypatch, no_slack):
