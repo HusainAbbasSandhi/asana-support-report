@@ -60,16 +60,21 @@ def test_daily_header_date_ist_and_cc():
     assert "<@U04H2DR5JJ1> <@U01NJ4W5RLL> <@U01GGKD7468>" in t
 
 
-def test_daily_metrics_and_raised_by_tables():
-    metrics, raised = tables(daily(report(no_reply=[make_task()] * 30)))[:2]
-    assert metrics == [
-        ["Metric", "Count"],
-        ["Open requests pending on Prod & Tech", "71"],
-        ["Open for more than 4 days", "50"],
-        ["Assigned to a support team member", "6"],
-        ["First response pending by Prod & Tech (2+ days)", "30"],
+def test_daily_summary_is_one_table_metrics_left_raised_by_right():
+    summary = tables(daily(report(no_reply=[make_task()] * 30)))[0]
+    assert summary == [
+        ["Metric", "Count", "Raised by", "Count"],
+        ["Open requests pending on Prod & Tech", "71", "Haydar Abbas", "23"],
+        ["Open for more than 4 days", "50", "Ishika Batra", "17"],
+        ["Assigned to a support team member", "6", "", ""],
+        ["First response pending by Prod & Tech (2+ days)", "30", "", ""],
     ]
-    assert raised == [["Support agent", "Open requests"], ["Haydar Abbas", "23"], ["Ishika Batra", "17"]]
+
+
+def test_daily_summary_grows_when_more_than_four_agents():
+    agents = [(f"Agent {i}", 6 - i) for i in range(6)]
+    summary = tables(daily(report(raised_by=agents)))[0]
+    assert len(summary) == 7 and summary[6] == ["", "", "Agent 5", "1"]
 
 
 def test_daily_pending_table_has_raised_by_assignee_and_age():
@@ -77,13 +82,13 @@ def test_daily_pending_table_has_raised_by_assignee_and_age():
     p2 = make_task(age_days=3, assignee="Priyank", name="Newer one")
     j1 = make_task(age_days=2.5, assignee="akash.mathur@reelo.io", creator="nobody")
     u1 = make_task(age_days=4, assignee=None)
-    pending = tables(daily(report(no_reply=[j1, p2, u1, p1])))[2]
+    pending = tables(daily(report(no_reply=[j1, p2, u1, p1])))[1]
     assert pending[0] == ["#", "Request", "Raised by", "Assigned to", "Waiting since raised"]
-    assert pending[1:] == [
+    assert pending[1:] == [  # longest wait first
         ["1", "Old one", "Haydar Abbas", "Priyank", "5 days"],
-        ["2", "Newer one", "Haydar Abbas", "Priyank", "3 days"],
-        ["3", j1.name, "—", "Akash Mathur", "2 days"],
-        ["4", u1.name, "Haydar Abbas", "Unassigned", "4 days"],
+        ["2", u1.name, "Haydar Abbas", "Unassigned", "4 days"],
+        ["3", "Newer one", "Haydar Abbas", "Priyank", "3 days"],
+        ["4", j1.name, "—", "Akash Mathur", "2 days"],
     ]
 
 
@@ -97,7 +102,7 @@ def test_request_cell_is_a_link_and_long_names_shortened():
 
 def test_no_reply_empty_state():
     p = daily(report(no_reply=[]))
-    assert "✅" in texts(p) and len(tables(p)) == 2
+    assert "✅" in texts(p) and len(tables(p)) == 1
 
 
 def test_footer_link_bug_tracking_only():
@@ -117,7 +122,7 @@ def test_monospace_fallback_replaces_every_table():
     p = monospace_fallback(daily(report(no_reply=[make_task(name="Fallback one")])))
     assert not any(b["type"] == "table" for b in p["blocks"])
     t = texts(p)
-    assert t.count("```") == 6 and "Open for more than 4 days" in t and "Fallback one" in t
+    assert t.count("```") == 4 and "Open for more than 4 days" in t and "Fallback one" in t
 
 
 def test_stalled_table_columns_and_values():
@@ -128,10 +133,10 @@ def test_stalled_table_columns_and_values():
     assert "Stalled conversations · Thursday, 5 Nov" in texts(p)
     assert "🐞 BUG TRACKING — 2 stalled" in texts(p)
     (table,) = tables(p)
-    assert table[0] == ["#", "Request", "Raised by", "Assigned to", "Since last Prod & Tech reply", "Replied by"]
+    assert table[0] == ["#", "Request", "Raised by", "Assigned to", "Last Prod & Tech reply", "Last Prod & Tech reply by"]
     assert table[1:] == [
         ["1", "Silent one", "Haydar Abbas", "Joel", "No reply yet (raised 4 days ago)", "—"],
-        ["2", "Yuki mismatch", "Haydar Abbas", "Joel", "2 days", "Akash Mathur"],
+        ["2", "Yuki mismatch", "Haydar Abbas", "Joel", "2 days ago", "Akash Mathur"],
     ]
 
 

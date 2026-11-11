@@ -91,26 +91,29 @@ WRAP = {"is_wrapped": True}
 def _daily_section(key: str, emoji: str, label: str, report: DailyReport, config: dict,
                    now: datetime) -> list[dict]:
     team = config["asana"].get("support_team") or {}
-    metrics = [[_cell(name), _cell(str(getattr(report, attr)))] for name, attr in TABLE_ROWS]
-    metrics.append([_cell(NO_REPLY_LABEL), _cell(str(len(report.no_reply)))])
+    metrics = [(name, str(getattr(report, attr))) for name, attr in TABLE_ROWS]
+    metrics.append((NO_REPLY_LABEL, str(len(report.no_reply))))
+    raised = [(n, str(c)) for n, c in report.raised_by]
+    # One table: summary metrics on the left, raised-by counts on the right; the shorter side is padded.
+    height = max(len(metrics), len(raised))
+    pad = [("", "")]
+    summary = [[_cell(a), _cell(b), _cell(c), _cell(d)]
+               for (a, b), (c, d) in zip(metrics + pad * (height - len(metrics)),
+                                         raised + pad * (height - len(raised)))]
     blocks = [
         {"type": "divider"},
         _section(f"*{emoji} {label.upper()}*"),
-        _table(["Metric", "Count"], metrics, [WRAP, RIGHT]),
+        _table(["Metric", "Count", "Raised by", "Count"], summary, [WRAP, RIGHT, WRAP, RIGHT]),
     ]
-    if report.raised_by:
-        blocks += [_section("*Raised by*"),
-                   _table(["Support agent", "Open requests"],
-                          [[_cell(n), _cell(str(c))] for n, c in report.raised_by], [WRAP, RIGHT])]
     blocks.append(_section(f"*⏳ {escape(NO_REPLY_LABEL)} — {len(report.no_reply)}*\n"
                            f"_Requests with a due date are not included_"))
     if report.no_reply:
-        tasks = _ordered(report.no_reply, lambda t: t)
+        tasks = sorted(report.no_reply, key=lambda t: t.created_at)  # longest wait first
         rows = [[_cell(str(i)), _link_cell(t), _cell(team.get(t.created_by_gid, "—")),
                  _cell(_person(t.assignee_name)), _cell(_days(max(0, (now - t.created_at).days)))]
                 for i, t in enumerate(tasks, 1)]
         blocks.append(_table(["#", "Request", "Raised by", "Assigned to", "Waiting since raised"],
-                             rows, [RIGHT, WRAP, WRAP, WRAP, WRAP]))
+                             rows, [RIGHT, WRAP, WRAP, WRAP, RIGHT]))
         blocks += _more(tasks)
     else:
         blocks.append(_section("✅ Every request older than 2 days has a first response from Prod &amp; Tech"))
@@ -140,7 +143,7 @@ def build_stalled(items: dict[str, list[tuple[Task, Comment | None]]], config: d
             since = f"No reply yet (raised {_days(max(0, (now - task.created_at).days))} ago)"
             by = "—"
         else:
-            since = _days(max(1, (now - last.created_at).days))
+            since = f"{_days(max(1, (now - last.created_at).days))} ago"
             by = _person(last.author_name) if last.author_name else "—"
         return [_cell(str(i)), _link_cell(task), _cell(team.get(task.created_by_gid, "—")),
                 _cell(_person(task.assignee_name)), _cell(since), _cell(by)]
@@ -149,8 +152,8 @@ def build_stalled(items: dict[str, list[tuple[Task, Comment | None]]], config: d
         its = _ordered(items.get(key) or [], lambda it: it[0])
         blocks += [{"type": "divider"}, _section(f"*{emoji} {label.upper()} — {len(its)} stalled*")]
         if its:
-            blocks.append(_table(["#", "Request", "Raised by", "Assigned to", "Since last Prod & Tech reply",
-                                  "Replied by"], [row(i, it) for i, it in enumerate(its, 1)],
+            blocks.append(_table(["#", "Request", "Raised by", "Assigned to", "Last Prod & Tech reply",
+                                  "Last Prod & Tech reply by"], [row(i, it) for i, it in enumerate(its, 1)],
                                  [RIGHT, WRAP, WRAP, WRAP, WRAP, WRAP]))
             blocks += _more(its)
         else:
