@@ -155,3 +155,17 @@ def test_ignored_commenters_do_not_count_as_prod_tech_reply(monkeypatch, capsys,
     monkeypatch.setenv("ASANA_TOKEN", "a")
     assert main_mod.run(report="stalled", dry_run=True, config_path=CONFIG, now=NOW) == 0
     assert "No reply yet (raised" in capsys.readouterr().out
+
+
+def test_posts_go_to_test_channel_until_switch_date():
+    cfg = {"timezone": "Asia/Kolkata",
+           "slack": {"channel": "REAL", "test_channel": "TEST", "test_until": "2026-11-12"}}
+    ist_1400_11 = datetime(2026, 11, 11, 8, 30, tzinfo=timezone.utc)
+    ist_0005_12 = datetime(2026, 11, 11, 18, 35, tzinfo=timezone.utc)  # already 12 Nov in IST
+    ist_1000_12 = datetime(2026, 11, 12, 4, 30, tzinfo=timezone.utc)
+    assert main_mod._channel(cfg, ist_1400_11, test=False) == "TEST"
+    assert main_mod._channel(cfg, ist_0005_12, test=False) == "REAL"
+    assert main_mod._channel(cfg, ist_1000_12, test=False) == "REAL"
+    assert main_mod._channel(cfg, ist_1000_12, test=True) == "TEST"
+    del cfg["slack"]["test_until"]
+    assert main_mod._channel(cfg, ist_1400_11, test=False) == "REAL"

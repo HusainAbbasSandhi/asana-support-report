@@ -7,6 +7,7 @@ import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -32,6 +33,16 @@ def _post(channel: str, payload: dict, token: str) -> str:
         if exc.code != "invalid_blocks":
             raise
         return post_message(channel, monospace_fallback(payload), token)
+
+
+def _channel(config: dict, now: datetime, test: bool) -> str:
+    """test_channel for test runs, and for every run before slack.test_until (an IST date)."""
+    slack = config["slack"]
+    until = slack.get("test_until")
+    today = now.astimezone(ZoneInfo(config["timezone"])).date().isoformat()
+    if test or (until and today < str(until)):
+        return slack["test_channel"]
+    return slack["channel"]
 
 
 def run(report: str = "daily", dry_run: bool = False, config_path: str = "config.yaml",
@@ -74,7 +85,7 @@ def run(report: str = "daily", dry_run: bool = False, config_path: str = "config
         if dry_run:
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 0
-        channel = config["slack"]["test_channel"] if test else config["slack"]["channel"]
+        channel = _channel(config, now, test)
         ts = _post(channel, payload, slack_token)
     except (AsanaError, SlackError) as exc:
         _err(str(exc))

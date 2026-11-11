@@ -20,8 +20,10 @@ asana:
   ignore_commenters:
     "1206307213098057": "BoldDesk sync (shows as \"Support Team\")"
 slack:
-  # PAUSED 2026-11-10: real posts go to #test-channel. To resume, set back to "C075PCA1NF7" (#tech-cs-issues).
-  channel: "C0CF6BY6KHS"
+  channel: "C075PCA1NF7"          # #tech-cs-issues
+  # Before this IST date, scheduled posts go to test_channel instead (Husain: live in #tech-cs-issues from 12 Nov).
+  # Safe to delete once that date has passed.
+  test_until: "2026-11-12"
   test_channel: "C0CF6BY6KHS"     # #test-channel — manual runs with "test" ticked
   mention_user_ids: ["U04H2DR5JJ1", "U01NJ4W5RLL", "U01GGKD7468"]
 limits:
