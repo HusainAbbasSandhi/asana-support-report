@@ -43,22 +43,24 @@ def daily_report(tasks: list[Task], comments: dict[str, list[Comment]], team: di
 
 def stalled_report(tasks: list[Task], comments: dict[str, list[Comment]], team: dict,
                    now: datetime) -> list[tuple[Task, Comment | None]]:
-    """Requests that have gone quiet. Prod & Tech get the first 2 days to reply, so nothing counts before that.
+    """Requests where Prod & Tech have gone quiet. Only Prod & Tech comments count: a support
+    agent chasing for an update does not reset the clock.
 
-    After 2 days: with a Prod & Tech reply -> stalled when the latest comment is older than 24h
-    (returned with that comment); with no reply at all -> stalled (returned with None).
+    Nothing counts in a request's first 2 days. After that: no Prod & Tech reply at all -> stalled
+    (returned with None); otherwise stalled when the latest Prod & Tech comment is older than 24h
+    (returned with that comment).
     """
     out = []
     for t in tasks:
         if t.due_on or now - t.created_at <= NO_REPLY_AFTER:
             continue
-        cs = comments.get(t.gid, [])
-        if not _tech_comments(cs, team):
+        tech = _tech_comments(comments.get(t.gid, []), team)
+        if not tech:
             out.append((t, None))
             continue
-        last = max(cs, key=lambda c: c.created_at)
-        if now - last.created_at > STALLED_AFTER:
-            out.append((t, last))
+        last_tech = max(tech, key=lambda c: c.created_at)
+        if now - last_tech.created_at > STALLED_AFTER:
+            out.append((t, last_tech))
     return out
 
 

@@ -128,7 +128,7 @@ def test_stalled_lists_last_comment_and_tags():
     t = texts(stalled([(t1, last)]))
     assert "Stalled conversations · Thursday, 5 Nov" in t
     assert "<@Joel> — 1 stalled" in t
-    assert "Yuki mismatch" in t and "last comment 2 days ago by Haydar Abbas" in t
+    assert "Yuki mismatch" in t and "last Prod &amp; Tech reply 2 days ago by Haydar Abbas" in t
 
 
 def test_stalled_empty_state_still_posts():

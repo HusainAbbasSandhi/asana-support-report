@@ -87,15 +87,15 @@ def test_stalled_after_two_days_no_reply_counts_with_none():
     assert [(t.gid, last) for t, last in out] == [(no_tech.gid, None), (only_support.gid, None)]
 
 
-def test_stalled_after_two_days_with_reply_needs_24h_quiet():
-    active = task(100)
-    stalled = task(100)
+def test_stalled_counts_only_prod_tech_replies():
+    tech_recent = task(100)
+    tech_old_support_chasing = task(100)
     comments = {
-        active.gid: [c(50, "tech1"), c(3, "s1")],
-        stalled.gid: [c(80, "tech1"), c(30, "s1")],
+        tech_recent.gid: [c(80, "tech1"), c(10, "tech1")],
+        tech_old_support_chasing.gid: [c(80, "tech1"), c(30, "s1"), c(3, "s2")],  # support pings don't reset it
     }
-    out = stalled_report([active, stalled], comments, TEAM, NOW)
-    assert [(t.gid, last.author_gid) for t, last in out] == [(stalled.gid, "s1")]
+    out = stalled_report([tech_recent, tech_old_support_chasing], comments, TEAM, NOW)
+    assert [(t.gid, last.author_gid) for t, last in out] == [(tech_old_support_chasing.gid, "tech1")]
 
 
 def test_stalled_empty_when_nothing_matches():

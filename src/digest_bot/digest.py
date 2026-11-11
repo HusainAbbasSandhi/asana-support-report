@@ -115,8 +115,8 @@ def build_daily(reports: dict[str, DailyReport], config: dict, now: datetime, ta
 
 def build_stalled(items: dict[str, list[tuple[Task, Comment | None]]], config: dict, now: datetime, tag: Tag) -> dict:
     header = f"⏰ Stalled conversations · {_date(now, config)}"
-    blocks = [_section(f"*{header}*\n_Open support requests where Prod &amp; Tech replied, "
-                       f"but nobody has commented for 24h+, or no reply at all after 2 days · requests with a due date are not included_")]
+    blocks = [_section(f"*{header}*\n_Open support requests where Prod &amp; Tech have not replied for 24h+, or not at all "
+                       f"after 2 days · support follow-ups don't count · requests with a due date are not included_")]
 
     def bullet(item):
         task, last = item
@@ -125,7 +125,7 @@ def build_stalled(items: dict[str, list[tuple[Task, Comment | None]]], config: d
             return f"• {_link(task)} — no reply from Prod &amp; Tech yet · raised {raised} ago"
         ago = _days(max(1, (now - last.created_at).days))
         who = f" by {escape(last.author_name)}" if last.author_name else ""
-        return f"• {_link(task)} — last comment {ago} ago{who}"
+        return f"• {_link(task)} — last Prod &amp; Tech reply {ago} ago{who}"
 
     for key, emoji, label in PROJECTS:
         its = items.get(key) or []
