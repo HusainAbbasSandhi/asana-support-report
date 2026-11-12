@@ -13,7 +13,13 @@ import requests
 
 from digest_bot.asana_client import AsanaError, fetch_open_tasks, fetch_stories
 from digest_bot.config import load_config
-from digest_bot.digest import PROJECTS, build_daily, build_stalled, monospace_fallback
+from digest_bot.digest import (
+    PROJECTS,
+    build_daily,
+    build_stalled,
+    monospace_fallback,
+    payload_problems,
+)
 from digest_bot.metrics import daily_report, stalled_report
 from digest_bot.models import comments_from_stories, from_asana, raised_by
 from digest_bot.slack_client import SlackError, post_message
@@ -26,13 +32,31 @@ def _err(msg: str) -> None:
     print(f"error: {msg}", file=sys.stderr)
 
 
-def _post(channel: str, payload: dict, token: str) -> str:
+def _alert(config: dict, token: str, report: str, channel: str, reason: str) -> None:
+    """Tell #test-channel the tables were swapped for plain text, so it never goes unnoticed again."""
+    msg = (f":warning: Tech Digest: the {report} report's tables were rejected, so it was posted as plain text "
+           f"in <#{channel}>. Reason: {reason[:1500]}")
+    print(f"warning: {msg}", file=sys.stderr)
     try:
-        return post_message(channel, payload, token)
-    except SlackError as exc:
-        if exc.code != "invalid_blocks":
-            raise
-        return post_message(channel, monospace_fallback(payload), token)
+        post_message(config["slack"]["test_channel"], {"text": msg, "blocks": [
+            {"type": "section", "text": {"type": "mrkdwn", "text": msg}}]}, token)
+    except SlackError as exc:  # the report itself already went out; never fail the run over the alert
+        _err(f"could not post the fallback alert: {exc}")
+
+
+def _post(channel: str, payload: dict, token: str, config: dict | None = None, report: str = "") -> str:
+    problems = payload_problems(payload)
+    if not problems:
+        try:
+            return post_message(channel, payload, token)
+        except SlackError as exc:
+            if exc.code != "invalid_blocks":
+                raise
+            problems = [f"Slack said invalid_blocks {exc.detail}".strip()]
+    ts = post_message(channel, monospace_fallback(payload), token)
+    if config:
+        _alert(config, token, report, channel, "; ".join(problems))
+    return ts
 
 
 def _channel(config: dict, now: datetime, test: bool) -> str:
@@ -86,7 +110,7 @@ def run(report: str = "daily", dry_run: bool = False, config_path: str = "config
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 0
         channel = _channel(config, now, test)
-        ts = _post(channel, payload, slack_token)
+        ts = _post(channel, payload, slack_token, config, report)
     except (AsanaError, SlackError) as exc:
         _err(str(exc))
         return 1

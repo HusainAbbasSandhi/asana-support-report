@@ -10,9 +10,10 @@ TIMEOUT = 30
 
 
 class SlackError(Exception):
-    def __init__(self, message: str, code: str | None = None):
+    def __init__(self, message: str, code: str | None = None, detail: str = ""):
         super().__init__(message)
         self.code = code
+        self.detail = detail  # Slack's response_metadata.messages, e.g. which block was invalid
 
 
 def _retry_after(resp) -> float:
@@ -46,5 +47,6 @@ def post_message(channel: str, payload: dict, token: str, session=None, sleep=ti
         raise SlackError("Slack returned an invalid response (not JSON)") from None
     if not data.get("ok"):
         code = data.get("error", "unknown")
-        raise SlackError(f"Slack API error: {code}", code=code)
+        detail = "; ".join((data.get("response_metadata") or {}).get("messages") or [])
+        raise SlackError(f"Slack API error: {code}", code=code, detail=detail)
     return data.get("ts", "")

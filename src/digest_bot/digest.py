@@ -46,12 +46,13 @@ BLANK = "—"  # Slack rejects the whole table (invalid_blocks) if any cell text
 
 
 def _cell(text: str) -> dict:
-    return {"type": "raw_text", "text": text or BLANK}
+    return {"type": "raw_text", "text": text if text and text.strip() else BLANK}
 
 
 def _link_cell(task: Task) -> dict:
-    name = (task.name if len(task.name) <= NAME_MAX else task.name[: NAME_MAX - 1] + "…") or BLANK
-    if not task.url:
+    name = (task.name or "").strip()
+    name = (name if len(name) <= NAME_MAX else name[: NAME_MAX - 1] + "…") or BLANK
+    if not (task.url or "").startswith("http"):
         return _cell(name)
     return {"type": "rich_text", "elements": [{"type": "rich_text_section", "elements": [
         {"type": "link", "url": task.url, "text": name}]}]}
@@ -178,8 +179,13 @@ def _pad(row: list[str], widths: list[int]) -> str:
     return "  ".join(v.ljust(w) for v, w in zip(row, widths)).rstrip()
 
 
+def _code(lines: list[str]) -> dict:
+    nl = chr(10)
+    return _section("```" + nl + nl.join(lines) + nl + "```")
+
+
 def monospace_fallback(payload: dict) -> dict:
-    """Same message with every table block rendered as a monospace code block."""
+    """Same message with every table block rendered as monospace code blocks (split to fit Slack's limits)."""
     blocks = []
     for b in payload["blocks"]:
         if b["type"] != "table":
@@ -189,5 +195,53 @@ def monospace_fallback(payload: dict) -> dict:
         rows = [[escape(_cell_text(c)).replace("`", "'") for c in row] for row in b["rows"]]
         widths = [max(len(r[i]) for r in rows) for i in range(len(rows[0]))]
         lines = [_pad(rows[0], widths), "  ".join("-" * w for w in widths), *(_pad(r, widths) for r in rows[1:])]
-        blocks.append(_section("```\n" + "\n".join(lines) + "\n```"))
-    return {**payload, "blocks": blocks}
+        chunk: list[str] = []
+        for line in lines:
+            line = line[: BLOCK_TEXT_MAX - 10]
+            if chunk and sum(len(x) + 1 for x in chunk) + len(line) + 8 > BLOCK_TEXT_MAX:
+                blocks.append(_code(chunk))
+                chunk = []
+            chunk.append(line)
+        blocks.append(_code(chunk))
+    return {**payload, "blocks": blocks[:BLOCKS_MAX]}
+
+
+BLOCKS_MAX = 50
+TABLE_COLS_MAX = 20
+CELL_TEXT_MAX = 1000
+
+
+def payload_problems(payload: dict) -> list[str]:
+    """Slack rules we know of that make chat.postMessage fail with invalid_blocks. Empty list = safe to send."""
+    out = []
+    blocks = payload.get("blocks") or []
+    if not (payload.get("text") or "").strip():
+        out.append("message text is empty")
+    if len(blocks) > BLOCKS_MAX:
+        out.append(f"{len(blocks)} blocks (max {BLOCKS_MAX})")
+    for i, b in enumerate(blocks):
+        if b["type"] == "section":
+            text = b["text"]["text"]
+            if not text.strip() or len(text) > BLOCK_TEXT_MAX:
+                out.append(f"block {i}: section text length {len(text)}")
+        if b["type"] != "table":
+            continue
+        rows, settings = b["rows"], b.get("column_settings") or []
+        width = len(rows[0]) if rows else 0
+        if not rows or len(rows) > TABLE_ROWS_MAX + 1:
+            out.append(f"block {i}: {len(rows)} table rows (max {TABLE_ROWS_MAX + 1})")
+        if width > TABLE_COLS_MAX or (settings and len(settings) != width):
+            out.append(f"block {i}: {width} columns, {len(settings)} column settings")
+        for r, row in enumerate(rows):
+            if len(row) != width:
+                out.append(f"block {i} row {r}: {len(row)} cells, header has {width}")
+            for c, cell in enumerate(row):
+                text = _cell_text(cell)
+                if not text.strip() or len(text) > CELL_TEXT_MAX:
+                    out.append(f"block {i} row {r} col {c}: cell text {text!r:.40}")
+                if cell["type"] == "rich_text":
+                    for sec in cell["elements"]:
+                        for el in sec["elements"]:
+                            if el.get("type") == "link" and not str(el.get("url", "")).startswith("http"):
+                                out.append(f"block {i} row {r} col {c}: bad link url")
+    return out
