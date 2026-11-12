@@ -66,15 +66,15 @@ def test_daily_summary_is_one_table_metrics_left_raised_by_right():
         ["📊 Summary", "Count", "┃", "┃", "🙋 Raised by", "Count"],
         ["Open requests pending on Prod & Tech", "71", "┃", "┃", "Haydar Abbas", "23"],
         ["Open for more than 4 days", "50", "┃", "┃", "Ishika Batra", "17"],
-        ["Assigned to a support team member", "6", "┃", "┃", "", ""],
-        ["First response pending by Prod & Tech (2+ days)", "30", "┃", "┃", "", ""],
+        ["Assigned to a support team member", "6", "┃", "┃", "—", "—"],
+        ["First response pending by Prod & Tech (2+ days)", "30", "┃", "┃", "—", "—"],
     ]
 
 
 def test_daily_summary_grows_when_more_than_four_agents():
     agents = [(f"Agent {i}", 6 - i) for i in range(6)]
     summary = tables(daily(report(raised_by=agents)))[0]
-    assert len(summary) == 7 and summary[6] == ["", "", "┃", "┃", "Agent 5", "1"]
+    assert len(summary) == 7 and summary[6] == ["—", "—", "┃", "┃", "Agent 5", "1"]
 
 
 def test_daily_pending_table_has_raised_by_assignee_and_age():
@@ -153,3 +153,19 @@ def test_monospace_fallback_escapes_asana_text():
     p = monospace_fallback(daily(report(no_reply=[make_task(name="<!channel> ```x``` & co")])))
     t = texts(p)
     assert "<!channel>" not in t and "&lt;!channel&gt;" in t and "'''x" in t and "&amp; co" in t
+
+
+def _cell_texts(payload):
+    for b in payload["blocks"]:
+        if b["type"] == "table":
+            for row in b["rows"]:
+                for c in row:
+                    yield c["text"] if c["type"] == "raw_text" else c["elements"][0]["elements"][0]["text"]
+
+
+def test_no_table_cell_is_empty_when_summary_sides_differ_in_height():
+    # 5 raisers vs 4 metrics forces a padding row; Slack rejects empty cells with invalid_blocks.
+    raised = [("A", 1), ("B", 1), ("C", 1), ("D", 1), ("E", 1)]
+    p = daily(report(raised_by=raised, no_reply=[make_task(name="")]))
+    texts = list(_cell_texts(p))
+    assert texts and all(t.strip() for t in texts)

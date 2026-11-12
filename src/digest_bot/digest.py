@@ -42,12 +42,15 @@ NAME_MAX = 55
 TABLE_ROWS_MAX = 99  # Slack allows 100 rows per table, header included
 
 
+BLANK = "—"  # Slack rejects the whole table (invalid_blocks) if any cell text is empty
+
+
 def _cell(text: str) -> dict:
-    return {"type": "raw_text", "text": text}
+    return {"type": "raw_text", "text": text or BLANK}
 
 
 def _link_cell(task: Task) -> dict:
-    name = task.name if len(task.name) <= NAME_MAX else task.name[: NAME_MAX - 1] + "…"
+    name = (task.name if len(task.name) <= NAME_MAX else task.name[: NAME_MAX - 1] + "…") or BLANK
     if not task.url:
         return _cell(name)
     return {"type": "rich_text", "elements": [{"type": "rich_text_section", "elements": [
