@@ -17,6 +17,7 @@ from digest_bot.digest import (
     PROJECTS,
     build_daily,
     build_stalled,
+    escape,
     monospace_fallback,
     payload_problems,
 )
@@ -35,7 +36,7 @@ def _err(msg: str) -> None:
 def _alert(config: dict, token: str, report: str, channel: str, reason: str) -> None:
     """Tell #test-channel the tables were swapped for plain text, so it never goes unnoticed again."""
     msg = (f":warning: Tech Digest: the {report} report's tables were rejected, so it was posted as plain text "
-           f"in <#{channel}>. Reason: {reason[:1500]}")
+           f"in <#{channel}>. Reason: {escape(reason[:1500])}")
     print(f"warning: {msg}", file=sys.stderr)
     try:
         post_message(config["slack"]["test_channel"], {"text": msg, "blocks": [

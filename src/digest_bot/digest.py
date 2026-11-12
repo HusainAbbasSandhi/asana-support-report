@@ -238,7 +238,7 @@ def payload_problems(payload: dict) -> list[str]:
             for c, cell in enumerate(row):
                 text = _cell_text(cell)
                 if not text.strip() or len(text) > CELL_TEXT_MAX:
-                    out.append(f"block {i} row {r} col {c}: cell text {text!r:.40}")
+                    out.append(f"block {i} row {r} col {c}: cell text length {len(text.strip())}")
                 if cell["type"] == "rich_text":
                     for sec in cell["elements"]:
                         for el in sec["elements"]:

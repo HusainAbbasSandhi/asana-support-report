@@ -91,14 +91,15 @@ def test_invalid_blocks_falls_back_to_monospace_once(monkeypatch, stub_asana):
         posted.append(payload)
         channels.append(ch)
         if any(b["type"] == "table" for b in payload["blocks"]):
-            raise SlackError("Slack API error: invalid_blocks", code="invalid_blocks", detail="[ERROR] bad cell")
+            raise SlackError("Slack API error: invalid_blocks", code="invalid_blocks", detail="[ERROR] bad cell <!channel>")
         return "2.2"
 
     monkeypatch.setattr(main_mod, "post_message", fake_post)
     assert main_mod.run(report="daily", dry_run=False, config_path=CONFIG, now=NOW) == 0
     # table try -> plain-text resend -> warning to #test-channel carrying Slack's reason
     assert len(posted) == 3 and not any(b["type"] == "table" for b in posted[1]["blocks"])
-    assert channels[2] == "C0CF6BY6KHS" and "bad cell" in posted[2]["text"]
+    assert channels[2] == "C0CF6BY6KHS" and "bad cell &lt;!channel&gt;" in posted[2]["text"]
+    assert "<!channel>" not in posted[2]["text"]
 
 
 def test_task_in_both_projects_counted_once(monkeypatch, capsys, no_slack):
