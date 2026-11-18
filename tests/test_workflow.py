@@ -113,13 +113,13 @@ def test_late_scheduled_runs_do_not_post():
         assert "steps.day.outputs.ok == 'true'" in _step(data, "Remember")["if"]
 
 
-def test_support_runs_four_slots_with_a_marker_per_slot():
+def test_support_runs_three_slots_with_a_marker_per_slot():
     data, on = _load("support.yml")
     attempts = _attempts_ist(on)
-    for slot in (10, 13, 16, 19):
+    for slot in (13, 16, 19):
         tries = [a for a in attempts if slot * 60 - 10 <= a <= slot * 60 + 50]
         assert len(tries) == 4 and all(a % 60 != 0 for a in tries)
-    assert len(attempts) == 16
+    assert len(attempts) == 12
     assert on_types("support.yml") == ["support-report"]
     check = _step(data, "already posted")
     assert check["if"] == GUARD and check["with"]["lookup-only"] is True

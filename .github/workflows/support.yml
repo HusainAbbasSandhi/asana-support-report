@@ -2,9 +2,9 @@ name: Support reply pending report
 
 on:
   schedule:
-    # Four slots a day: 10:00, 13:00, 16:00, 19:00 IST. Each slot gets four tries (:57 before, then
-    # :07, :17, :27 after); the first scheduled run that posts leaves a marker for that slot.
-    - cron: "27,37,47,57 4,7,10,13 * * *"
+    # Three slots a day: 13:00, 16:00, 19:00 IST (Husain, 18 Nov). Each slot gets four tries (:57 before,
+    # then :07, :17, :27 after); the first scheduled run that posts leaves a marker for that slot.
+    - cron: "27,37,47,57 7,10,13 * * *"
   repository_dispatch:
     # Fired on the hour by an external cron (cron-job.org); the GitHub schedule above is the backup.
     types: [support-report]
@@ -34,14 +34,14 @@ jobs:
     steps:
       - name: Today's date and slot (IST)
         id: day
-        # Slot = the latest of 10/13/16/19 IST that has started (5 min early allowed). Scheduled runs only
+        # Slot = the latest of 13/16/19 IST that has started (5 min early allowed). Scheduled runs only
         # post within 90 min of their slot, so a late GitHub run never posts in the wrong slot; the
         # cron-job.org trigger and manual runs are never blocked.
         run: |
           echo "date=$(TZ=Asia/Kolkata date +%F)" >> "$GITHUB_OUTPUT"
           now=$(( 10#$(TZ=Asia/Kolkata date +%H) * 60 + 10#$(TZ=Asia/Kolkata date +%M) ))
           slot=early
-          for s in 10 13 16 19; do
+          for s in 13 16 19; do
             if [ "$now" -ge $(( s * 60 - 5 )) ]; then slot=$s; fi
           done
           echo "slot=$slot" >> "$GITHUB_OUTPUT"
