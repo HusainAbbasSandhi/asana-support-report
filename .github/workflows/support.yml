@@ -1,0 +1,94 @@
+name: Support reply pending report
+
+on:
+  schedule:
+    # Four slots a day: 10:00, 13:00, 16:00, 19:00 IST. Each slot gets four tries (:57 before, then
+    # :07, :17, :27 after); the first scheduled run that posts leaves a marker for that slot.
+    - cron: "27,37,47,57 4,7,10,13 * * *"
+  repository_dispatch:
+    # Fired on the hour by an external cron (cron-job.org); the GitHub schedule above is the backup.
+    types: [support-report]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the message in the log instead of posting to Slack"
+        type: boolean
+        default: false
+      test_channel:
+        description: "Post to #test-channel instead of #customer-support-internal"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: write   # save the once-per-slot marker in the Actions cache
+
+concurrency:
+  group: support
+  cancel-in-progress: false
+
+jobs:
+  support:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Today's date and slot (IST)
+        id: day
+        # Slot = the latest of 10/13/16/19 IST that has started (5 min early allowed). Scheduled runs only
+        # post within 90 min of their slot, so a late GitHub run never posts in the wrong slot; the
+        # cron-job.org trigger and manual runs are never blocked.
+        run: |
+          echo "date=$(TZ=Asia/Kolkata date +%F)" >> "$GITHUB_OUTPUT"
+          now=$(( 10#$(TZ=Asia/Kolkata date +%H) * 60 + 10#$(TZ=Asia/Kolkata date +%M) ))
+          slot=early
+          for s in 10 13 16 19; do
+            if [ "$now" -ge $(( s * 60 - 5 )) ]; then slot=$s; fi
+          done
+          echo "slot=$slot" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" != "schedule" ] || { [ "$slot" != early ] && [ "$now" -le $(( slot * 60 + 90 )) ]; }; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Scheduled run started at minute $now IST, not within 90 min of a slot; not posting"
+          fi
+
+      - name: Check if this slot's report was already posted
+        id: sent
+        if: github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)
+        uses: actions/cache/restore@v4
+        with:
+          path: .sent-marker
+          key: sent-v2-support-${{ steps.day.outputs.date }}-${{ steps.day.outputs.slot }}
+          lookup-only: true
+
+      - uses: actions/checkout@v5
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
+
+      - uses: actions/setup-python@v6
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
+        run: pip install -r requirements.txt
+
+      - name: Build and post support reply pending report
+        if: steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
+        env:
+          PYTHONPATH: src
+          ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: python -m digest_bot.main --report support ${{ inputs.dry_run && '--dry-run' || '' }} ${{ inputs.test_channel && '--test' || '' }}
+
+      - name: Mark this slot's report as posted
+        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
+        run: date -u > .sent-marker
+
+      - name: Remember this slot's report was posted
+        if: (github.event_name != 'workflow_dispatch' || (!inputs.test_channel && !inputs.dry_run)) && steps.day.outputs.ok == 'true' && steps.sent.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .sent-marker
+          key: sent-v2-support-${{ steps.day.outputs.date }}-${{ steps.day.outputs.slot }}

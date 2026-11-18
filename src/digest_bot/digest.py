@@ -169,6 +169,36 @@ def build_stalled(items: dict[str, list[tuple[Task, Comment | None]]], config: d
     return {"text": header, "blocks": blocks[:50]}
 
 
+def _ago(now: datetime, then: datetime) -> str:
+    hours = int((now - then).total_seconds() // 3600)
+    if hours < 24:
+        return "1 hour ago" if hours == 1 else f"{hours} hours ago"
+    return f"{_days(hours // 24)} ago"
+
+
+def build_support_pending(items: dict[str, list[tuple[Task, Comment]]], config: dict, now: datetime) -> dict:
+    """Prod & Tech replied, support has not answered for 3h+. Goes to the support team's own channel."""
+    team = config["asana"].get("support_team") or {}
+    header = f"📣 Support reply pending · {_date(now, config)}"
+    blocks = [_section(f"*{header}*\n_Open requests where Prod &amp; Tech replied last and support has not "
+                       f"answered for 3+ hours · longest waiting first_")]
+    for key, emoji, label in PROJECTS:
+        its = items.get(key) or []
+        blocks += [{"type": "divider"}, _section(f"*{emoji} {label.upper()} — {len(its)} waiting on support*")]
+        if its:
+            rows = [[_cell(str(i)), _link_cell(t), _cell(team.get(t.created_by_gid, "—")),
+                     _cell(_person(t.assignee_name)), _cell(_person(last.author_name) if last.author_name else "—"),
+                     _cell(_ago(now, last.created_at))]
+                    for i, (t, last) in enumerate(its, 1)]
+            blocks.append(_table(["#", "Request", "Raised by", "Assigned to", "Prod & Tech reply by",
+                                  "Replied"], rows, [RIGHT, WRAP, WRAP, WRAP, WRAP, RIGHT]))
+            blocks += _more(its)
+        else:
+            blocks.append(_section("✅ Support has answered every Prod &amp; Tech reply"))
+        blocks.append(_project_link(key, label, config))
+    return {"text": header, "blocks": blocks[:50]}
+
+
 def _cell_text(cell: dict) -> str:
     if cell["type"] == "raw_text":
         return cell["text"]

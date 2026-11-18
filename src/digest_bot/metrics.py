@@ -10,6 +10,7 @@ from digest_bot.models import Comment, Task
 OPEN_LONG = timedelta(hours=96)
 NO_REPLY_AFTER = timedelta(hours=48)
 STALLED_AFTER = timedelta(hours=24)
+SUPPORT_REPLY_AFTER = timedelta(hours=3)
 
 
 @dataclass
@@ -62,6 +63,25 @@ def stalled_report(tasks: list[Task], comments: dict[str, list[Comment]], team: 
         if now - last_tech.created_at > STALLED_AFTER:
             out.append((t, last_tech))
     return out
+
+
+def support_pending(tasks: list[Task], comments: dict[str, list[Comment]], team: dict,
+                    now: datetime) -> list[tuple[Task, Comment]]:
+    """Requests where Prod & Tech wrote last and support has not answered for 3h+.
+
+    The latest identified comment decides: by Prod & Tech and older than 3 hours -> flagged
+    (returned with that comment, longest waiting first). Due dates do not exclude: the ball is
+    with support either way.
+    """
+    out = []
+    for t in tasks:
+        named = [c for c in comments.get(t.gid, []) if c.author_gid]
+        if not named:
+            continue
+        last = max(named, key=lambda c: c.created_at)
+        if last.author_gid not in team and now - last.created_at > SUPPORT_REPLY_AFTER:
+            out.append((t, last))
+    return sorted(out, key=lambda it: it[1].created_at)
 
 
 def group_by_assignee(items: list, key=lambda x: x) -> list[tuple[str | None, str | None, list]]:

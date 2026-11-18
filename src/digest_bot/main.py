@@ -17,15 +17,16 @@ from digest_bot.digest import (
     PROJECTS,
     build_daily,
     build_stalled,
+    build_support_pending,
     escape,
     monospace_fallback,
     payload_problems,
 )
-from digest_bot.metrics import daily_report, stalled_report
+from digest_bot.metrics import daily_report, stalled_report, support_pending
 from digest_bot.models import comments_from_stories, from_asana, raised_by
 from digest_bot.slack_client import SlackError, post_message
 
-REPORTS = ("daily", "stalled")
+REPORTS = ("daily", "stalled", "support")
 STORY_WORKERS = 6  # parallel comment fetches; well under Asana's concurrency limits
 
 
@@ -60,14 +61,15 @@ def _post(channel: str, payload: dict, token: str, config: dict | None = None, r
     return ts
 
 
-def _channel(config: dict, now: datetime, test: bool) -> str:
-    """test_channel for test runs, and for every run before slack.test_until (an IST date)."""
+def _channel(config: dict, now: datetime, test: bool, report: str = "daily") -> str:
+    """test_channel for test runs, and for every run before slack.test_until (an IST date).
+    The support report goes to the support team's own channel; the others to #tech-cs-issues."""
     slack = config["slack"]
     until = slack.get("test_until")
     today = now.astimezone(ZoneInfo(config["timezone"])).date().isoformat()
     if test or (until and today < str(until)):
         return slack["test_channel"]
-    return slack["channel"]
+    return slack["support_channel"] if report == "support" else slack["channel"]
 
 
 def run(report: str = "daily", dry_run: bool = False, config_path: str = "config.yaml",
@@ -104,13 +106,19 @@ def run(report: str = "daily", dry_run: bool = False, config_path: str = "config
         if report == "stalled":
             payload = build_stalled({k: stalled_report(ts, comments, team, now) for k, ts in split.items()},
                                     config, now)
+        elif report == "support":
+            pending = {k: support_pending(ts, comments, team, now) for k, ts in split.items()}
+            if not any(pending.values()):  # every 3 hours: stay quiet when nothing is waiting on support
+                print("Nothing waiting on support; not posting")
+                return 0
+            payload = build_support_pending(pending, config, now)
         else:
             payload = build_daily({k: daily_report(ts, comments, team, now) for k, ts in split.items()},
                                   config, now)
         if dry_run:
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 0
-        channel = _channel(config, now, test)
+        channel = _channel(config, now, test, report)
         ts = _post(channel, payload, slack_token, config, report)
     except (AsanaError, SlackError) as exc:
         _err(str(exc))

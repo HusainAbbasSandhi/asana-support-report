@@ -29,8 +29,9 @@ def _attempts_ist(on):
     out = []
     for entry in on["schedule"]:
         minute, hour, *_ = entry["cron"].split()
-        for m in minute.split(","):
-            out.append((int(hour) * 60 + int(m) + 330) % (24 * 60))
+        for h in hour.split(","):
+            for m in minute.split(","):
+                out.append((int(h) * 60 + int(m) + 330) % (24 * 60))
     return sorted(out)
 
 
@@ -110,3 +111,20 @@ def test_late_scheduled_runs_do_not_post():
         assert f"-ge {lo}" in day["run"] and f"-le {hi}" in day["run"] and "!= \"schedule\"" in day["run"]
         assert "steps.day.outputs.ok == 'true'" in _step(data, "Build and post")["if"]
         assert "steps.day.outputs.ok == 'true'" in _step(data, "Remember")["if"]
+
+
+def test_support_runs_four_slots_with_a_marker_per_slot():
+    data, on = _load("support.yml")
+    attempts = _attempts_ist(on)
+    for slot in (10, 13, 16, 19):
+        tries = [a for a in attempts if slot * 60 - 10 <= a <= slot * 60 + 50]
+        assert len(tries) == 4 and all(a % 60 != 0 for a in tries)
+    assert len(attempts) == 16
+    assert on_types("support.yml") == ["support-report"]
+    check = _step(data, "already posted")
+    assert check["if"] == GUARD and check["with"]["lookup-only"] is True
+    assert check["with"]["key"] == "sent-v2-support-${{ steps.day.outputs.date }}-${{ steps.day.outputs.slot }}"
+    save = _step(data, "Remember")
+    assert save["with"]["key"] == check["with"]["key"] and GUARD in save["if"]
+    assert "--report support" in _runs(data) and "inputs.test_channel && '--test'" in _runs(data)
+    assert "steps.day.outputs.ok == 'true'" in _step(data, "Build and post")["if"]

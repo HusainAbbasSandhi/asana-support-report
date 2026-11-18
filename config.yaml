@@ -24,6 +24,7 @@ slack:
   # Before this IST date, scheduled posts go to test_channel instead (Husain: live in #tech-cs-issues from 12 Nov).
   # Safe to delete once that date has passed.
   test_until: "2026-11-12"
+  support_channel: "C08FDBS3MAL"  # #customer-support-internal (private: the bot must be invited) — support report only
   test_channel: "C0CF6BY6KHS"     # #test-channel — manual runs with "test" ticked
   mention_user_ids: ["U04H2DR5JJ1", "U01NJ4W5RLL", "U01GGKD7468"]
 limits:
