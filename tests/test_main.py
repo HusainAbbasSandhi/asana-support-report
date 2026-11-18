@@ -177,13 +177,16 @@ def test_posts_go_to_test_channel_until_switch_date():
     assert main_mod._channel(cfg, ist_1400_11, test=False) == "REAL"
 
 
-def test_support_report_goes_to_support_channel_and_skips_when_empty(monkeypatch, capsys, stub_asana):
+def test_support_report_praises_when_nothing_waiting(monkeypatch, capsys, stub_asana):
     monkeypatch.setenv("ASANA_TOKEN", "a")
     monkeypatch.setenv("SLACK_BOT_TOKEN", "x")
     channels = []
     monkeypatch.setattr(main_mod, "post_message", lambda ch, payload, token: channels.append(ch) or "1.1")
     assert main_mod.run(report="support", dry_run=False, config_path=CONFIG, now=NOW) == 0
-    assert channels == [] and "Nothing waiting on support" in capsys.readouterr().out
+    posted = []
+    monkeypatch.setattr(main_mod, "post_message", lambda ch, payload, token: posted.append(payload) or "1.1")
+    assert main_mod.run(report="support", dry_run=False, config_path=CONFIG, now=NOW) == 0
+    assert len(channels) == 1 and "Support is all caught up" in posted[0]["text"]
     cfg = main_mod.load_config(CONFIG)
     later = datetime(2026, 11, 18, 5, 0, tzinfo=timezone.utc)
     assert main_mod._channel(cfg, later, False, "support") == "C08FDBS3MAL"

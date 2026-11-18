@@ -107,11 +107,9 @@ def run(report: str = "daily", dry_run: bool = False, config_path: str = "config
             payload = build_stalled({k: stalled_report(ts, comments, team, now) for k, ts in split.items()},
                                     config, now)
         elif report == "support":
-            pending = {k: support_pending(ts, comments, team, now) for k, ts in split.items()}
-            if not any(pending.values()):  # every 3 hours: stay quiet when nothing is waiting on support
-                print("Nothing waiting on support; not posting")
-                return 0
-            payload = build_support_pending(pending, config, now)
+            # Nothing waiting -> a thank-you message instead of the table (Husain, 18 Nov).
+            payload = build_support_pending({k: support_pending(ts, comments, team, now) for k, ts in split.items()},
+                                            config, now)
         else:
             payload = build_daily({k: daily_report(ts, comments, team, now) for k, ts in split.items()},
                                   config, now)

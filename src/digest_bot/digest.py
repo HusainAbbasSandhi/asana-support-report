@@ -176,8 +176,27 @@ def _ago(now: datetime, then: datetime) -> str:
     return f"{_days(hours // 24)} ago"
 
 
+PRAISE = (
+    "Every Prod &amp; Tech reply has been picked up within 3 hours. Great follow-through, team! 🙌",
+    "Nothing is waiting on support right now. Brilliant work keeping the conversations moving! 🚀",
+    "No Prod &amp; Tech reply has gone unanswered for 3+ hours. Keep it up! 💪",
+    "Zero requests waiting on us. That's the kind of response time our customers notice. 👏",
+)
+
+
+def build_support_praise(config: dict, now: datetime) -> dict:
+    """Nothing waiting on support: say thanks instead of staying silent. The line rotates per slot."""
+    local = now.astimezone(ZoneInfo(config["timezone"]))
+    line = PRAISE[(local.timetuple().tm_yday * 3 + local.hour) % len(PRAISE)]
+    header = f"🎉 Support is all caught up · {_date(now, config)}"
+    return {"text": header, "blocks": [_section(f"*{header}*\n{line}")]}
+
+
 def build_support_pending(items: dict[str, list[tuple[Task, Comment]]], config: dict, now: datetime) -> dict:
-    """Prod & Tech replied, support has not answered for 3h+. Goes to the support team's own channel."""
+    """Prod & Tech replied, support has not answered for 3h+. Goes to the support team's own channel.
+    When nothing is waiting anywhere, the message is a thank-you instead (build_support_praise)."""
+    if not any(items.values()):
+        return build_support_praise(config, now)
     team = config["asana"].get("support_team") or {}
     header = f"📣 Support reply pending · {_date(now, config)}"
     blocks = [_section(f"*{header}*\n_Open requests where Prod &amp; Tech replied last and support has not "

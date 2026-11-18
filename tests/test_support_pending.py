@@ -60,5 +60,12 @@ def test_payload_wording():
     flat = str(p)
     assert "Support reply pending" in flat and "2 waiting on support" in flat
     assert "5 hours ago" in flat and "2 days ago" in flat
-    empty = str(build_support_pending({}, CFG, NOW))
-    assert "Support has answered every Prod &amp; Tech reply" in empty
+    empty = build_support_pending({"bug_tracking": []}, CFG, NOW)
+    assert "Support is all caught up" in str(empty) and not any(b["type"] == "table" for b in empty["blocks"])
+    assert payload_problems(empty) == []
+
+
+def test_praise_line_rotates_across_slots():
+    lines = {build_support_pending({}, CFG, NOW.replace(hour=h))["blocks"][0]["text"]["text"].split("\n")[1]
+             for h in (7, 10, 13)}  # 1, 4, 7 PM IST
+    assert len(lines) == 3
