@@ -66,21 +66,25 @@ def stalled_report(tasks: list[Task], comments: dict[str, list[Comment]], team: 
 
 
 def support_pending(tasks: list[Task], comments: dict[str, list[Comment]], team: dict,
-                    now: datetime) -> list[tuple[Task, Comment]]:
-    """Requests where Prod & Tech wrote last and support has not answered for 3h+.
+                    now: datetime) -> list[tuple[Task, Comment, list[str]]]:
+    """Requests where Prod & Tech @-tagged a support agent who has not replied for 3h+ (Husain, 19 Nov).
 
-    The latest identified comment decides: by Prod & Tech and older than 3 hours -> flagged
-    (returned with that comment, longest waiting first). Due dates do not exclude: the ball is
-    with support either way.
+    Prod & Tech chatting among themselves does not need support. What counts is the latest Prod & Tech
+    comment that tags someone on the support team: if none of the tagged agents has commented since
+    (any of their accounts) and it is older than 3 hours, the request is flagged. Returned as
+    (task, tagging comment, tagged agent names), longest waiting first. Due dates do not exclude.
     """
     out = []
     for t in tasks:
-        named = [c for c in comments.get(t.gid, []) if c.author_gid]
-        if not named:
+        named = sorted((c for c in comments.get(t.gid, []) if c.author_gid), key=lambda c: c.created_at)
+        tagging = [c for c in named if c.author_gid not in team and any(g in team for g in c.mentions)]
+        if not tagging:
             continue
-        last = max(named, key=lambda c: c.created_at)
-        if last.author_gid not in team and now - last.created_at > SUPPORT_REPLY_AFTER:
-            out.append((t, last))
+        ask = tagging[-1]
+        tagged = list(dict.fromkeys(team[g] for g in ask.mentions if g in team))
+        answered = any(c.created_at > ask.created_at and team.get(c.author_gid) in tagged for c in named)
+        if not answered and now - ask.created_at > SUPPORT_REPLY_AFTER:
+            out.append((t, ask, tagged))
     return sorted(out, key=lambda it: it[1].created_at)
 
 

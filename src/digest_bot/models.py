@@ -1,6 +1,7 @@
 """Normalise raw Asana task JSON into a flat Task record."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -44,9 +45,22 @@ class Comment:
     created_at: datetime
     author_gid: str | None
     author_name: str | None
+    mentions: tuple[str, ...] = ()  # Asana user gids @-tagged in the comment
 
 
-STORY_OPT_FIELDS = "resource_subtype,created_at,created_by.gid,created_by.name"
+STORY_OPT_FIELDS = "resource_subtype,created_at,created_by.gid,created_by.name,html_text"
+_MENTION = re.compile(r'<a [^>]*data-asana-type="user"[^>]*>')
+_GID = re.compile(r'data-asana-gid="(\d+)"')
+
+
+def mentions_in(html: str | None) -> tuple[str, ...]:
+    """User gids @-tagged in a comment's html_text, in order, without repeats."""
+    out: list[str] = []
+    for tag in _MENTION.findall(html or ""):
+        m = _GID.search(tag)
+        if m and m.group(1) not in out:
+            out.append(m.group(1))
+    return tuple(out)
 
 
 def comments_from_stories(stories: list[dict]) -> list[Comment]:
@@ -56,7 +70,8 @@ def comments_from_stories(stories: list[dict]) -> list[Comment]:
         if s.get("resource_subtype") != "comment_added" or not s.get("created_at"):
             continue
         author = s.get("created_by") or {}
-        out.append(Comment(_parse_ts(s["created_at"]), _clean(author.get("gid")), _clean(author.get("name"))))
+        out.append(Comment(_parse_ts(s["created_at"]), _clean(author.get("gid")), _clean(author.get("name")),
+                           mentions_in(s.get("html_text"))))
     return sorted(out, key=lambda c: c.created_at)
 
 

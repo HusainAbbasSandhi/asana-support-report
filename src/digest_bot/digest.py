@@ -177,9 +177,9 @@ def _ago(now: datetime, then: datetime) -> str:
 
 
 PRAISE = (
-    "Every Prod &amp; Tech reply has been picked up within 3 hours. Great follow-through, team! 🙌",
+    "Every time Prod &amp; Tech tagged us, we replied within 3 hours. Great follow-through, team! 🙌",
     "Nothing is waiting on support right now. Brilliant work keeping the conversations moving! 🚀",
-    "No Prod &amp; Tech reply has gone unanswered for 3+ hours. Keep it up! 💪",
+    "No Prod &amp; Tech tag has gone unanswered for 3+ hours. Keep it up! 💪",
     "Zero requests waiting on us. That's the kind of response time our customers notice. 👏",
 )
 
@@ -192,28 +192,28 @@ def build_support_praise(config: dict, now: datetime) -> dict:
     return {"text": header, "blocks": [_section(f"*{header}*\n{line}")]}
 
 
-def build_support_pending(items: dict[str, list[tuple[Task, Comment]]], config: dict, now: datetime) -> dict:
-    """Prod & Tech replied, support has not answered for 3h+. Goes to the support team's own channel.
+def build_support_pending(items: dict[str, list[tuple[Task, Comment, list[str]]]], config: dict,
+                          now: datetime) -> dict:
+    """Prod & Tech tagged a support agent who has not replied for 3h+. Goes to the support team's own channel.
     When nothing is waiting anywhere, the message is a thank-you instead (build_support_praise)."""
     if not any(items.values()):
         return build_support_praise(config, now)
     team = config["asana"].get("support_team") or {}
     header = f"📣 Support reply pending · {_date(now, config)}"
-    blocks = [_section(f"*{header}*\n_Open requests where Prod &amp; Tech replied last and support has not "
-                       f"answered for 3+ hours · longest waiting first_")]
+    blocks = [_section(f"*{header}*\n_Open requests where Prod &amp; Tech tagged a support agent who has not "
+                       f"replied for 3+ hours · longest waiting first_")]
     for key, emoji, label in PROJECTS:
         its = items.get(key) or []
         blocks += [{"type": "divider"}, _section(f"*{emoji} {label.upper()} — {len(its)} waiting on support*")]
         if its:
-            rows = [[_cell(str(i)), _link_cell(t), _cell(team.get(t.created_by_gid, "—")),
-                     _cell(_person(t.assignee_name)), _cell(_person(last.author_name) if last.author_name else "—"),
-                     _cell(_ago(now, last.created_at))]
-                    for i, (t, last) in enumerate(its, 1)]
-            blocks.append(_table(["#", "Request", "Raised by", "Assigned to", "Prod & Tech reply by",
-                                  "Replied"], rows, [RIGHT, WRAP, WRAP, WRAP, WRAP, RIGHT]))
+            rows = [[_cell(str(i)), _link_cell(t), _cell(", ".join(tagged)), _cell(team.get(t.created_by_gid, "—")),
+                     _cell(_person(ask.author_name) if ask.author_name else "—"), _cell(_ago(now, ask.created_at))]
+                    for i, (t, ask, tagged) in enumerate(its, 1)]
+            blocks.append(_table(["#", "Request", "Tagged (needs to reply)", "Raised by", "Tagged by",
+                                  "Tagged"], rows, [RIGHT, WRAP, WRAP, WRAP, WRAP, RIGHT]))
             blocks += _more(its)
         else:
-            blocks.append(_section("✅ Support has answered every Prod &amp; Tech reply"))
+            blocks.append(_section("✅ Support has answered every Prod &amp; Tech tag"))
         blocks.append(_project_link(key, label, config))
     return {"text": header, "blocks": blocks[:50]}
 
